@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -16,11 +16,12 @@ use AcmePhp\Core\Challenge\Http\HttpValidator;
 use AcmePhp\Core\Protocol\AuthorizationChallenge;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
+use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
-class HttpValidatorTest extends \PHPUnit_Framework_TestCase
+class HttpValidatorTest extends TestCase
 {
     public function testSupports()
     {
@@ -77,9 +78,11 @@ class HttpValidatorTest extends \PHPUnit_Framework_TestCase
         $mockExtractor->getCheckUrl($stubChallenge->reveal())->willReturn($checkUrl);
         $mockExtractor->getCheckContent($stubChallenge->reveal())->willReturn($checkContent);
 
-        $mockHttpClient->get($checkUrl)->willThrow(
-            new ClientException('boom', $this->prophesize(RequestInterface::class)->reveal())
-        );
+        $mockHttpClient->get($checkUrl)->willThrow(new ClientException(
+            'boom',
+            $this->prophesize(RequestInterface::class)->reveal(),
+            $this->prophesize(ResponseInterface::class)->reveal()
+        ));
 
         $this->assertFalse($validator->isValid($stubChallenge->reveal()));
     }

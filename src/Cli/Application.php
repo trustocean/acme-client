@@ -17,6 +17,8 @@ use AcmePhp\Cli\Command\Helper\DistinguishedNameHelper;
 use AcmePhp\Cli\Command\MonitoringTestCommand;
 use AcmePhp\Cli\Command\RegisterCommand;
 use AcmePhp\Cli\Command\RequestCommand;
+use AcmePhp\Cli\Command\RevokeCommand;
+use AcmePhp\Cli\Command\RunCommand;
 use AcmePhp\Cli\Command\SelfUpdateCommand;
 use AcmePhp\Cli\Command\StatusCommand;
 use Symfony\Component\Console\Application as BaseApplication;
@@ -28,7 +30,7 @@ use Webmozart\PathUtil\Path;
  */
 class Application extends BaseApplication
 {
-    const VERSION = '1.0.0-dev';
+    const VERSION = '1.1.1';
 
     /**
      * {@inheritdoc}
@@ -44,10 +46,12 @@ class Application extends BaseApplication
     protected function getDefaultCommands()
     {
         return array_merge(parent::getDefaultCommands(), [
+            new RunCommand(),
             new RegisterCommand(),
             new AuthorizeCommand(),
             new CheckCommand(),
             new RequestCommand(),
+            new RevokeCommand(),
             new StatusCommand(),
             new SelfUpdateCommand(),
             new MonitoringTestCommand(),
@@ -77,7 +81,7 @@ class Application extends BaseApplication
             null,
             InputOption::VALUE_REQUIRED,
             'Set the ACME server directory to use',
-            'https://acme-v01.api.letsencrypt.org/directory'
+            'https://acme-v02.api.letsencrypt.org/directory'
         ));
 
         return $definition;

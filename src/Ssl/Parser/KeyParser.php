@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -39,8 +39,9 @@ class KeyParser
         }
 
         $rawData = openssl_pkey_get_details($resource);
+        openssl_free_key($resource);
 
-        if (!is_array($rawData)) {
+        if (!\is_array($rawData)) {
             throw new KeyParsingException(sprintf('Fail to parse key with error: %s', openssl_error_string()));
         }
 
@@ -52,12 +53,14 @@ class KeyParser
 
         $details = [];
 
-        if ($rawData['type'] === OPENSSL_KEYTYPE_RSA) {
+        if (OPENSSL_KEYTYPE_RSA === $rawData['type']) {
             $details = $rawData['rsa'];
-        } elseif ($rawData['type'] === OPENSSL_KEYTYPE_DSA) {
+        } elseif (OPENSSL_KEYTYPE_DSA === $rawData['type']) {
             $details = $rawData['dsa'];
-        } elseif ($rawData['type'] === OPENSSL_KEYTYPE_DH) {
+        } elseif (OPENSSL_KEYTYPE_DH === $rawData['type']) {
             $details = $rawData['dh'];
+        } elseif (OPENSSL_KEYTYPE_EC === $rawData['type']) {
+            $details = $rawData['ec'];
         }
 
         return new ParsedKey($key, $rawData['key'], $rawData['bits'], $rawData['type'], $details);

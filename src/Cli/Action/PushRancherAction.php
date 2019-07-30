@@ -41,14 +41,6 @@ class PushRancherAction implements ActionInterface
     /**
      * {@inheritdoc}
      */
-    public function getName()
-    {
-        return 'push_rancher';
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function handle($config, CertificateResponse $response)
     {
         $payload = $this->createRancherPayloadFromResponse($response);
@@ -80,11 +72,11 @@ class PushRancherAction implements ActionInterface
         }, $certificate->getIssuerChain());
 
         return \GuzzleHttp\json_encode([
-            'name'        => $response->getCertificateRequest()->getDistinguishedName()->getCommonName(),
+            'name' => $response->getCertificateRequest()->getDistinguishedName()->getCommonName(),
             'description' => 'Generated with Acme PHP',
-            'cert'        => $certificate->getPEM(),
-            'certChain'   => implode("\n", $issuerChain),
-            'key'         => $privateKey->getPEM(),
+            'cert' => $certificate->getPEM(),
+            'certChain' => implode("\n", $issuerChain),
+            'key' => $privateKey->getPEM(),
         ]);
     }
 
@@ -98,7 +90,7 @@ class PushRancherAction implements ActionInterface
             $certificates = array_merge($certificates, $page['data']);
 
             $nextPage = null;
-            if (isset($page['pagination'], $page['pagination']['next']) && is_string($page['pagination']['next'])) {
+            if (isset($page['pagination'], $page['pagination']['next']) && \is_string($page['pagination']['next'])) {
                 $nextPage = $page['pagination']['next'];
             }
         }

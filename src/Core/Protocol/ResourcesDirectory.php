@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -20,15 +20,10 @@ use Webmozart\Assert\Assert;
  */
 class ResourcesDirectory
 {
-    const NEW_REGISTRATION = 'new-reg';
-    const RECOVER_REGISTRATION = 'recover-reg';
-    const NEW_AUTHORIZATION = 'new-authz';
-    const NEW_CERTIFICATE = 'new-cert';
-    const REVOKE_CERTIFICATE = 'revoke-cert';
-    const REGISTRATION = 'reg';
-    const AUTHORIZATION = 'authz';
-    const CHALLENGE = 'challenge';
-    const CERTIFICATE = 'cert';
+    const NEW_ACCOUNT = 'newAccount';
+    const NEW_ORDER = 'newOrder';
+    const NEW_NONCE = 'newNonce';
+    const REVOKE_CERT = 'revokeCert';
 
     /**
      * @var array
@@ -40,12 +35,6 @@ class ResourcesDirectory
      */
     public function __construct(array $serverResources)
     {
-        Assert::allOneOf(
-            array_keys($serverResources),
-            self::getResourcesNames(),
-            'Resource type "%s" is not supported by the ACME server (supported: %2$s)'
-        );
-
         $this->serverResources = $serverResources;
     }
 
@@ -55,15 +44,10 @@ class ResourcesDirectory
     public static function getResourcesNames()
     {
         return [
-            self::NEW_REGISTRATION,
-            self::RECOVER_REGISTRATION,
-            self::NEW_AUTHORIZATION,
-            self::NEW_CERTIFICATE,
-            self::REVOKE_CERTIFICATE,
-            self::REGISTRATION,
-            self::AUTHORIZATION,
-            self::CHALLENGE,
-            self::CERTIFICATE,
+            self::NEW_ACCOUNT,
+            self::NEW_ORDER,
+            self::NEW_NONCE,
+            self::REVOKE_CERT,
         ];
     }
 

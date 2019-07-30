@@ -25,8 +25,12 @@ class AcmeConfiguration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder()
     {
-        $treeBuilder = new TreeBuilder();
-        $rootNode = $treeBuilder->root('acmephp');
+        $treeBuilder = new TreeBuilder('acmephp');
+        if (method_exists(TreeBuilder::class, 'getRootNode')) {
+            $rootNode = $treeBuilder->getRootNode();
+        } else {
+            $rootNode = $treeBuilder->root('acmephp');
+        }
 
         $this->createRootNode($rootNode);
 
@@ -39,6 +43,7 @@ class AcmeConfiguration implements ConfigurationInterface
     protected function createRootNode(ArrayNodeDefinition $rootNode)
     {
         $rootNode
+            ->addDefaultsIfNotSet()
             ->children()
                 ->arrayNode('storage')
                     ->info('Configure here where and how you want to save your certificates and SSL keys.')
@@ -55,7 +60,7 @@ class AcmeConfiguration implements ConfigurationInterface
                                 ->cannotBeEmpty()
                                 ->validate()
                                 ->ifTrue(function ($action) {
-                                    return !array_key_exists('action', $action);
+                                    return !\array_key_exists('action', $action);
                                 })
                                     ->thenInvalid('The "action" configuration key is required.')
                                 ->end()

@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -12,6 +12,7 @@
 namespace AcmePhp\Ssl;
 
 use AcmePhp\Ssl\Exception\KeyFormatException;
+use Webmozart\Assert\Assert;
 
 /**
  * Represent a SSL Private key.
@@ -26,9 +27,42 @@ class PrivateKey extends Key
     public function getResource()
     {
         if (!$resource = openssl_pkey_get_private($this->keyPEM)) {
-            throw new KeyFormatException(sprintf('Fail to convert key into resource: %s', openssl_error_string()));
+            throw new KeyFormatException(sprintf('Failed to convert key into resource: %s', openssl_error_string()));
         }
 
         return $resource;
+    }
+
+    /**
+     * @return PublicKey
+     */
+    public function getPublicKey()
+    {
+        $resource = $this->getResource();
+        if (!$details = openssl_pkey_get_details($resource)) {
+            throw new KeyFormatException(sprintf('Failed to extract public key: %s', openssl_error_string()));
+        }
+
+        openssl_free_key($resource);
+
+        return new PublicKey($details['key']);
+    }
+
+    /**
+     * @param $keyDER
+     *
+     * @return PrivateKey
+     */
+    public static function fromDER($keyDER)
+    {
+        Assert::stringNotEmpty($keyDER, __METHOD__.'::$keyDER should be a non-empty string. Got %s');
+
+        $der = base64_encode($keyDER);
+        $lines = str_split($der, 65);
+        array_unshift($lines, '-----BEGIN PRIVATE KEY-----');
+        $lines[] = '-----END PRIVATE KEY-----';
+        $lines[] = '';
+
+        return new self(implode("\n", $lines));
     }
 }

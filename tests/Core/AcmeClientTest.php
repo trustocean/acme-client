@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -12,8 +12,8 @@
 namespace Tests\AcmePhp\Core;
 
 use AcmePhp\Core\AcmeClient;
-use AcmePhp\Core\AcmeClientInterface;
 use AcmePhp\Core\Challenge\Http\SimpleHttpSolver;
+use AcmePhp\Core\Exception\Protocol\CertificateRevocationException;
 use AcmePhp\Core\Http\Base64SafeEncoder;
 use AcmePhp\Core\Http\SecureHttpClient;
 use AcmePhp\Core\Http\ServerErrorHandler;
@@ -22,24 +22,23 @@ use AcmePhp\Ssl\Certificate;
 use AcmePhp\Ssl\CertificateRequest;
 use AcmePhp\Ssl\CertificateResponse;
 use AcmePhp\Ssl\DistinguishedName;
+use AcmePhp\Ssl\Generator\EcKey\EcKeyOption;
+use AcmePhp\Ssl\Generator\KeyOption;
 use AcmePhp\Ssl\Generator\KeyPairGenerator;
+use AcmePhp\Ssl\Generator\RsaKey\RsaKeyOption;
 use AcmePhp\Ssl\Parser\KeyParser;
 use AcmePhp\Ssl\Signer\DataSigner;
 use GuzzleHttp\Client;
-use Symfony\Component\Process\PhpExecutableFinder;
-use Symfony\Component\Process\Process;
 
-class AcmeClientTest extends \PHPUnit_Framework_TestCase
+class AcmeClientTest extends AbstractFunctionnalTest
 {
     /**
-     * @var AcmeClientInterface
+     * @dataProvider getKeyOptions
      */
-    private $client;
-
-    public function setUp()
+    public function testFullProcess(KeyOption $keyOption)
     {
         $secureHttpClient = new SecureHttpClient(
-            (new KeyPairGenerator())->generateKeyPair(),
+            (new KeyPairGenerator())->generateKeyPair($keyOption),
             new Client(),
             new Base64SafeEncoder(),
             new KeyParser(),
@@ -47,45 +46,23 @@ class AcmeClientTest extends \PHPUnit_Framework_TestCase
             new ServerErrorHandler()
         );
 
-        $this->client = new AcmeClient($secureHttpClient, 'http://127.0.0.1:4000/directory');
-    }
+        $client = new AcmeClient($secureHttpClient, 'https://localhost:14000/dir');
 
-    /**
-     * @expectedException \AcmePhp\Core\Exception\Server\MalformedServerException
-     */
-    public function testDoubleRegisterAccountFail()
-    {
-        $this->client->registerAccount();
-        $this->client->registerAccount();
-    }
-
-    /**
-     * @expectedException \AcmePhp\Core\Exception\Server\MalformedServerException
-     */
-    public function testInvalidAgreement()
-    {
-        $this->client->registerAccount('http://invalid.com');
-        $this->client->requestAuthorization('example.org');
-    }
-
-    public function testFullProcess()
-    {
         /*
          * Register account
          */
-        $data = $this->client->registerAccount('http://boulder:4000/terms/v1');
+        $data = $client->registerAccount();
 
         $this->assertInternalType('array', $data);
-        $this->assertArrayHasKey('id', $data);
         $this->assertArrayHasKey('key', $data);
-        $this->assertArrayHasKey('initialIp', $data);
-        $this->assertArrayHasKey('createdAt', $data);
 
         $solver = new SimpleHttpSolver();
+
         /*
          * Ask for domain challenge
          */
-        $challenges = $this->client->requestAuthorization('acmephp.com');
+        $order = $client->requestOrder(['acmephp.com']);
+        $challenges = $order->getAuthorizationChallenges('acmephp.com');
         foreach ($challenges as $challenge) {
             if ('http-01' === $challenge->getType()) {
                 break;
@@ -94,20 +71,20 @@ class AcmeClientTest extends \PHPUnit_Framework_TestCase
 
         $this->assertInstanceOf(AuthorizationChallenge::class, $challenge);
         $this->assertEquals('acmephp.com', $challenge->getDomain());
-        $this->assertContains('http://127.0.0.1:4000/acme/challenge', $challenge->getUrl());
+        $this->assertContains('https://localhost:14000/chalZ/', $challenge->getUrl());
 
         $solver->solve($challenge);
 
         /*
          * Challenge check
          */
-        $process = $this->createServerProcess($challenge);
+        $process = $this->createServerProcess($challenge->getToken(), $challenge->getPayload());
         $process->start();
-
+        sleep(1);
         $this->assertTrue($process->isRunning());
 
         try {
-            $check = $this->client->challengeAuthorization($challenge);
+            $check = $client->challengeAuthorization($challenge);
             $this->assertEquals('valid', $check['status']);
         } finally {
             $process->stop();
@@ -116,52 +93,32 @@ class AcmeClientTest extends \PHPUnit_Framework_TestCase
         /*
          * Request certificate
          */
-        $csr = new CertificateRequest(new DistinguishedName('acmephp.com'), (new KeyPairGenerator())->generateKeyPair());
-        $response = $this->client->requestCertificate('acmephp.com', $csr);
+        $csr = new CertificateRequest(new DistinguishedName('acmephp.com'), (new KeyPairGenerator())->generateKeyPair($keyOption));
+        $response = $client->finalizeOrder($order, $csr);
 
         $this->assertInstanceOf(CertificateResponse::class, $response);
         $this->assertEquals($csr, $response->getCertificateRequest());
         $this->assertInstanceOf(Certificate::class, $response->getCertificate());
-        $this->assertInstanceOf(Certificate::class, $response->getCertificate()->getIssuerCertificate());
+
+        /*
+         * Revoke certificate
+         *
+         * ACME will not let you revoke the same cert twice so this test should pass both cases
+         */
+        try {
+            $client->revokeCertificate($response->getCertificate());
+        } catch (CertificateRevocationException $e) {
+            $this->assertContains('Unable to find specified certificate', $e->getPrevious()->getPrevious()->getMessage());
+        }
     }
 
-    /**
-     * @param AuthorizationChallenge $challenge
-     *
-     * @return Process
-     */
-    private function createServerProcess(AuthorizationChallenge $challenge)
+    public function getKeyOptions()
     {
-        $listen = '0.0.0.0:5002';
-        $documentRoot = __DIR__.'/Fixtures/challenges';
-
-        // Create file
-        file_put_contents(
-            $documentRoot.'/.well-known/acme-challenge/'.$challenge->getToken(),
-            $challenge->getPayload()
-        );
-
-        // Start server
-        $finder = new PhpExecutableFinder();
-
-        if (false === $binary = $finder->find()) {
-            throw new \RuntimeException('Unable to find PHP binary to start server.');
+        yield [new RsaKeyOption(1024)];
+        yield [new RsaKeyOption(4098)];
+        if (\PHP_VERSION_ID >= 70100) {
+            yield [new EcKeyOption('prime256v1')];
+            yield [new EcKeyOption('secp384r1')];
         }
-
-        $script = implode(
-            ' ',
-            array_map(
-                ['Symfony\Component\Process\ProcessUtils', 'escapeArgument'],
-                [
-                    $binary,
-                    '-S',
-                    $listen,
-                    '-t',
-                    $documentRoot,
-                ]
-            )
-        );
-
-        return new Process('exec '.$script, $documentRoot, null, null, null);
     }
 }

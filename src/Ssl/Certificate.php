@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -11,6 +11,7 @@
 
 namespace AcmePhp\Ssl;
 
+use AcmePhp\Ssl\Exception\CertificateFormatException;
 use Webmozart\Assert\Assert;
 
 /**
@@ -27,10 +28,10 @@ class Certificate
     private $issuerCertificate;
 
     /**
-     * @param string      $certificatePEM
-     * @param Certificate $issuerCertificate
+     * @param string           $certificatePEM
+     * @param Certificate|null $issuerCertificate
      */
-    public function __construct($certificatePEM, Certificate $issuerCertificate = null)
+    public function __construct($certificatePEM, self $issuerCertificate = null)
     {
         Assert::stringNotEmpty($certificatePEM, __CLASS__.'::$certificatePEM should not be an empty string. Got %s');
 
@@ -68,5 +69,25 @@ class Certificate
     public function getIssuerCertificate()
     {
         return $this->issuerCertificate;
+    }
+
+    /**
+     * @return resource
+     */
+    public function getPublicKeyResource()
+    {
+        if (!$resource = openssl_pkey_get_public($this->certificatePEM)) {
+            throw new CertificateFormatException(sprintf('Failed to convert certificate into public key resource: %s', openssl_error_string()));
+        }
+
+        return $resource;
+    }
+
+    /**
+     * @return PublicKey
+     */
+    public function getPublicKey()
+    {
+        return new PublicKey(openssl_pkey_get_details($this->getPublicKeyResource())['key']);
     }
 }

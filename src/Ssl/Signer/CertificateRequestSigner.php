@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -86,9 +86,11 @@ EOL;
                 $resource,
                 [
                     'digest_alg' => 'sha256',
-                    'config'     => $sslConfigFile,
+                    'config' => $sslConfigFile,
                 ]
             );
+
+            openssl_free_key($resource);
 
             if (!$csr) {
                 throw new CSRSigningException(
@@ -111,9 +113,7 @@ EOL;
      */
     private function getCSRPayload(DistinguishedName $distinguishedName)
     {
-        $payload = [
-            'commonName' => $distinguishedName->getCommonName(),
-        ];
+        $payload = [];
         if (null !== $countryName = $distinguishedName->getCountryName()) {
             $payload['countryName'] = $countryName;
         }
@@ -128,6 +128,9 @@ EOL;
         }
         if (null !== $organizationUnitName = $distinguishedName->getOrganizationalUnitName()) {
             $payload['organizationalUnitName'] = $organizationUnitName;
+        }
+        if (null !== $commonName = $distinguishedName->getCommonName()) {
+            $payload['commonName'] = $commonName;
         }
         if (null !== $emailAddress = $distinguishedName->getEmailAddress()) {
             $payload['emailAddress'] = $emailAddress;

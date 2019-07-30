@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -57,24 +57,24 @@ class MonitoredApplicationTest extends AbstractApplicationTest
         $command = $this->application->find('request');
         $commandTester = new CommandTester($command);
         $commandTester->execute([
-            'command'        => $command->getName(),
-            'domain'         => 'acmephp.com',
-            '--server'       => 'http://127.0.0.1:4000/directory',
-            '--country'      => 'FR',
-            '--province'     => 'Ile de France',
-            '--locality'     => 'Paris',
+            'command' => $command->getName(),
+            'domain' => 'acmephp.com',
+            '--server' => 'https://localhost:14000/dir',
+            '--country' => 'FR',
+            '--province' => 'Ile de France',
+            '--locality' => 'Paris',
             '--organization' => 'Acme PHP',
-            '--unit'         => 'Sales',
-            '--email'        => 'galopintitouan@gmail.com',
-            '--force'        => true,
+            '--unit' => 'Sales',
+            '--email' => 'galopintitouan@gmail.com',
+            '--force' => true,
         ]);
 
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/private/acmephp.com/private.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/private/acmephp.com/public.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/cert.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/combined.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/chain.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/fullchain.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/private/key.private.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/private/key.public.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/public/cert.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/private/combined.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/public/chain.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/public/fullchain.pem');
     }
 
     public function testRenewalWithIssue()
@@ -84,24 +84,24 @@ class MonitoredApplicationTest extends AbstractApplicationTest
         $command = $this->application->find('request');
         $commandTester = new CommandTester($command);
         $commandTester->execute([
-            'command'        => $command->getName(),
-            'domain'         => 'acmephp.com',
-            '--server'       => 'http://127.0.0.1:4000/directory',
-            '--country'      => 'FR',
-            '--province'     => 'Ile de France',
-            '--locality'     => 'Paris',
+            'command' => $command->getName(),
+            'domain' => 'acmephp.com',
+            '--server' => 'https://localhost:14000/dir',
+            '--country' => 'FR',
+            '--province' => 'Ile de France',
+            '--locality' => 'Paris',
             '--organization' => 'Acme PHP',
-            '--unit'         => 'Sales',
-            '--email'        => 'galopintitouan@gmail.com',
-            '--force'        => true,
+            '--unit' => 'Sales',
+            '--email' => 'galopintitouan@gmail.com',
+            '--force' => true,
         ]);
 
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/private/acmephp.com/private.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/private/acmephp.com/public.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/cert.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/combined.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/chain.pem');
-        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/fullchain.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/private/key.private.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/private/key.public.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/public/cert.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/private/combined.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/public/chain.pem');
+        $this->assertFileExists(__DIR__.'/../Cli/Fixtures/local/master/certs/acmephp.com/public/fullchain.pem');
 
         /*
          * Mock monitoring handlers
@@ -121,7 +121,7 @@ class MonitoredApplicationTest extends AbstractApplicationTest
         // Replace handlers builders by mocks
         $handler = new TestHandler();
 
-        $handlerBuilder = $this->getMock(HandlerBuilderInterface::class);
+        $handlerBuilder = $this->getMockBuilder(HandlerBuilderInterface::class)->getMock();
         $handlerBuilder
             ->expects($this->exactly(2))
             ->method('createHandler')
@@ -129,8 +129,8 @@ class MonitoredApplicationTest extends AbstractApplicationTest
 
         /** @var ContainerInterface $container */
         $container = $containerReflection->getValue($command);
-        $container->set('monitoring.email', $handlerBuilder);
-        $container->set('monitoring.slack', $handlerBuilder);
+        $container->set('acmephp.monitoring.email', $handlerBuilder);
+        $container->set('acmephp.monitoring.slack', $handlerBuilder);
 
         // Introduce HTTP issue
         $container->set('http.raw_client', new Client(['handler' => new MockHandler([
@@ -148,16 +148,16 @@ class MonitoredApplicationTest extends AbstractApplicationTest
 
         try {
             $commandTester->execute([
-                'command'        => $command->getName(),
-                'domain'         => 'acmephp.com',
-                '--server'       => 'http://127.0.0.1:4000/directory',
-                '--country'      => 'FR',
-                '--province'     => 'Ile de France',
-                '--locality'     => 'Paris',
+                'command' => $command->getName(),
+                'domain' => 'acmephp.com',
+                '--server' => 'https://localhost:14000/dir',
+                '--country' => 'FR',
+                '--province' => 'Ile de France',
+                '--locality' => 'Paris',
                 '--organization' => 'Acme PHP',
-                '--unit'         => 'Sales',
-                '--email'        => 'galopintitouan@gmail.com',
-                '--force'        => true,
+                '--unit' => 'Sales',
+                '--email' => 'galopintitouan@gmail.com',
+                '--force' => true,
             ]);
         } catch (AcmeCoreClientException $e) {
             $thrownException = $e;

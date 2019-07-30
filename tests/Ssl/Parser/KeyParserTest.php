@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -16,8 +16,9 @@ use AcmePhp\Ssl\ParsedKey;
 use AcmePhp\Ssl\Parser\KeyParser;
 use AcmePhp\Ssl\PrivateKey;
 use AcmePhp\Ssl\PublicKey;
+use PHPUnit\Framework\TestCase;
 
-class KeyParserTest extends \PHPUnit_Framework_TestCase
+class KeyParserTest extends TestCase
 {
     /** @var KeyParser */
     private $service;
@@ -67,8 +68,8 @@ class KeyParserTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(OPENSSL_KEYTYPE_RSA, $result->getType());
         $this->assertEquals(4096, $result->getBits());
         $this->assertInternalType('array', $result->getDetails());
-        $this->assertEquals(256, strlen($result->getDetail('p')));
-        $this->assertEquals(256, strlen($result->getDetail('q')));
+        $this->assertEquals(256, \strlen($result->getDetail('p')));
+        $this->assertEquals(256, \strlen($result->getDetail('q')));
         $this->assertEquals(trim($this->getPublicKey()->getPEM()), trim($result->getKey()));
     }
 

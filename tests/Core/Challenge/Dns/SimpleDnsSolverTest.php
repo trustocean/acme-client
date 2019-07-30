@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -14,10 +14,11 @@ namespace Tests\AcmePhp\Core\Challenge\Dns;
 use AcmePhp\Core\Challenge\Dns\DnsDataExtractor;
 use AcmePhp\Core\Challenge\Dns\SimpleDnsSolver;
 use AcmePhp\Core\Protocol\AuthorizationChallenge;
+use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class SimpleDnsSolverTest extends \PHPUnit_Framework_TestCase
+class SimpleDnsSolverTest extends TestCase
 {
     public function testSupports()
     {

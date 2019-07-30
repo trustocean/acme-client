@@ -14,6 +14,7 @@ namespace AcmePhp\Cli\Repository;
 use AcmePhp\Cli\Exception\AcmeCliException;
 use AcmePhp\Cli\Serializer\PemEncoder;
 use AcmePhp\Core\Protocol\AuthorizationChallenge;
+use AcmePhp\Core\Protocol\CertificateOrder;
 use AcmePhp\Ssl\Certificate;
 use AcmePhp\Ssl\CertificateResponse;
 use AcmePhp\Ssl\DistinguishedName;
@@ -27,8 +28,22 @@ use Symfony\Component\Serializer\SerializerInterface;
 /**
  * @author Titouan Galopin <galopintitouan@gmail.com>
  */
-class Repository implements RepositoryInterface
+class Repository implements RepositoryV2Interface
 {
+    const PATH_ACCOUNT_KEY_PRIVATE = 'account/key.private.pem';
+    const PATH_ACCOUNT_KEY_PUBLIC = 'account/key.public.pem';
+
+    const PATH_DOMAIN_KEY_PUBLIC = 'certs/{domain}/private/key.public.pem';
+    const PATH_DOMAIN_KEY_PRIVATE = 'certs/{domain}/private/key.private.pem';
+    const PATH_DOMAIN_CERT_CERT = 'certs/{domain}/public/cert.pem';
+    const PATH_DOMAIN_CERT_CHAIN = 'certs/{domain}/public/chain.pem';
+    const PATH_DOMAIN_CERT_FULLCHAIN = 'certs/{domain}/public/fullchain.pem';
+    const PATH_DOMAIN_CERT_COMBINED = 'certs/{domain}/private/combined.pem';
+
+    const PATH_CACHE_AUTHORIZATION_CHALLENGE = 'var/{domain}/authorization_challenge.json';
+    const PATH_CACHE_DISTINGUISHED_NAME = 'var/{domain}/distinguished_name.json';
+    const PATH_CACHE_CERTIFICATE_ORDER = 'var/{domains}/certificate_order.json';
+
     /**
      * @var SerializerInterface
      */
@@ -83,12 +98,12 @@ class Repository implements RepositoryInterface
     {
         try {
             $this->save(
-                'private/_account/public.pem',
+                self::PATH_ACCOUNT_KEY_PUBLIC,
                 $this->serializer->serialize($keyPair->getPublicKey(), PemEncoder::FORMAT)
             );
 
             $this->save(
-                'private/_account/private.pem',
+                self::PATH_ACCOUNT_KEY_PRIVATE,
                 $this->serializer->serialize($keyPair->getPrivateKey(), PemEncoder::FORMAT)
             );
         } catch (\Exception $e) {
@@ -96,12 +111,22 @@ class Repository implements RepositoryInterface
         }
     }
 
+    private function getPathForDomain($path, $domain)
+    {
+        return strtr($path, ['{domain}' => $this->normalizeDomain($domain)]);
+    }
+
+    private function getPathForDomainList($path, array $domains)
+    {
+        return strtr($path, ['{domains}' => $this->normalizeDomainList($domains)]);
+    }
+
     /**
      * {@inheritdoc}
      */
     public function hasAccountKeyPair()
     {
-        return $this->master->has('private/_account/private.pem');
+        return $this->master->has(self::PATH_ACCOUNT_KEY_PRIVATE);
     }
 
     /**
@@ -110,8 +135,8 @@ class Repository implements RepositoryInterface
     public function loadAccountKeyPair()
     {
         try {
-            $publicKeyPem = $this->master->read('private/_account/public.pem');
-            $privateKeyPem = $this->master->read('private/_account/private.pem');
+            $publicKeyPem = $this->master->read(self::PATH_ACCOUNT_KEY_PUBLIC);
+            $privateKeyPem = $this->master->read(self::PATH_ACCOUNT_KEY_PRIVATE);
 
             return new KeyPair(
                 $this->serializer->deserialize($publicKeyPem, PublicKey::class, PemEncoder::FORMAT),
@@ -129,12 +154,12 @@ class Repository implements RepositoryInterface
     {
         try {
             $this->save(
-                'private/'.$domain.'/public.pem',
+                $this->getPathForDomain(self::PATH_DOMAIN_KEY_PUBLIC, $domain),
                 $this->serializer->serialize($keyPair->getPublicKey(), PemEncoder::FORMAT)
             );
 
             $this->save(
-                'private/'.$domain.'/private.pem',
+                $this->getPathForDomain(self::PATH_DOMAIN_KEY_PRIVATE, $domain),
                 $this->serializer->serialize($keyPair->getPrivateKey(), PemEncoder::FORMAT)
             );
         } catch (\Exception $e) {
@@ -147,7 +172,7 @@ class Repository implements RepositoryInterface
      */
     public function hasDomainKeyPair($domain)
     {
-        return $this->master->has('private/'.$domain.'/private.pem');
+        return $this->master->has($this->getPathForDomain(self::PATH_DOMAIN_KEY_PRIVATE, $domain));
     }
 
     /**
@@ -156,8 +181,8 @@ class Repository implements RepositoryInterface
     public function loadDomainKeyPair($domain)
     {
         try {
-            $publicKeyPem = $this->master->read('private/'.$domain.'/public.pem');
-            $privateKeyPem = $this->master->read('private/'.$domain.'/private.pem');
+            $publicKeyPem = $this->master->read($this->getPathForDomain(self::PATH_DOMAIN_KEY_PUBLIC, $domain));
+            $privateKeyPem = $this->master->read($this->getPathForDomain(self::PATH_DOMAIN_KEY_PRIVATE, $domain));
 
             return new KeyPair(
                 $this->serializer->deserialize($publicKeyPem, PublicKey::class, PemEncoder::FORMAT),
@@ -175,7 +200,7 @@ class Repository implements RepositoryInterface
     {
         try {
             $this->save(
-                'private/'.$domain.'/authorization_challenge.json',
+                $this->getPathForDomain(self::PATH_CACHE_AUTHORIZATION_CHALLENGE, $domain),
                 $this->serializer->serialize($authorizationChallenge, JsonEncoder::FORMAT)
             );
         } catch (\Exception $e) {
@@ -188,7 +213,7 @@ class Repository implements RepositoryInterface
      */
     public function hasDomainAuthorizationChallenge($domain)
     {
-        return $this->master->has('private/'.$domain.'/authorization_challenge.json');
+        return $this->master->has($this->getPathForDomain(self::PATH_CACHE_AUTHORIZATION_CHALLENGE, $domain));
     }
 
     /**
@@ -197,7 +222,7 @@ class Repository implements RepositoryInterface
     public function loadDomainAuthorizationChallenge($domain)
     {
         try {
-            $json = $this->master->read('private/'.$domain.'/authorization_challenge.json');
+            $json = $this->master->read($this->getPathForDomain(self::PATH_CACHE_AUTHORIZATION_CHALLENGE, $domain));
 
             return $this->serializer->deserialize($json, AuthorizationChallenge::class, JsonEncoder::FORMAT);
         } catch (\Exception $e) {
@@ -212,7 +237,7 @@ class Repository implements RepositoryInterface
     {
         try {
             $this->save(
-                'private/'.$domain.'/distinguished_name.json',
+                $this->getPathForDomain(self::PATH_CACHE_DISTINGUISHED_NAME, $domain),
                 $this->serializer->serialize($distinguishedName, JsonEncoder::FORMAT)
             );
         } catch (\Exception $e) {
@@ -225,7 +250,7 @@ class Repository implements RepositoryInterface
      */
     public function hasDomainDistinguishedName($domain)
     {
-        return $this->master->has('private/'.$domain.'/distinguished_name.json');
+        return $this->master->has($this->getPathForDomain(self::PATH_CACHE_DISTINGUISHED_NAME, $domain));
     }
 
     /**
@@ -234,7 +259,7 @@ class Repository implements RepositoryInterface
     public function loadDomainDistinguishedName($domain)
     {
         try {
-            $json = $this->master->read('private/'.$domain.'/distinguished_name.json');
+            $json = $this->master->read($this->getPathForDomain(self::PATH_CACHE_DISTINGUISHED_NAME, $domain));
 
             return $this->serializer->deserialize($json, DistinguishedName::class, JsonEncoder::FORMAT);
         } catch (\Exception $e) {
@@ -269,10 +294,10 @@ class Repository implements RepositoryInterface
         $combinedPem = $fullChainPem.$this->serializer->serialize($keyPair->getPrivateKey(), PemEncoder::FORMAT);
 
         // Save
-        $this->save('certs/'.$domain.'/cert.pem', $certPem);
-        $this->save('certs/'.$domain.'/chain.pem', $chainPem);
-        $this->save('certs/'.$domain.'/fullchain.pem', $fullChainPem);
-        $this->save('certs/'.$domain.'/combined.pem', $combinedPem);
+        $this->save($this->getPathForDomain(self::PATH_DOMAIN_CERT_CERT, $domain), $certPem);
+        $this->save($this->getPathForDomain(self::PATH_DOMAIN_CERT_CHAIN, $domain), $chainPem);
+        $this->save($this->getPathForDomain(self::PATH_DOMAIN_CERT_FULLCHAIN, $domain), $fullChainPem);
+        $this->save($this->getPathForDomain(self::PATH_DOMAIN_CERT_COMBINED, $domain), $combinedPem);
     }
 
     /**
@@ -280,7 +305,7 @@ class Repository implements RepositoryInterface
      */
     public function hasDomainCertificate($domain)
     {
-        return $this->master->has('certs/'.$domain.'/fullchain.pem');
+        return $this->master->has($this->getPathForDomain(self::PATH_DOMAIN_CERT_FULLCHAIN, $domain));
     }
 
     /**
@@ -289,7 +314,7 @@ class Repository implements RepositoryInterface
     public function loadDomainCertificate($domain)
     {
         try {
-            $pems = explode('-----BEGIN CERTIFICATE-----', $this->master->read('certs/'.$domain.'/fullchain.pem'));
+            $pems = explode('-----BEGIN CERTIFICATE-----', $this->master->read($this->getPathForDomain(self::PATH_DOMAIN_CERT_FULLCHAIN, $domain)));
         } catch (\Exception $e) {
             throw new AcmeCliException(sprintf('Loading of domain %s certificate failed', $domain), $e);
         }
@@ -310,6 +335,43 @@ class Repository implements RepositoryInterface
         }
 
         return $certificate;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function storeCertificateOrder(array $domains, CertificateOrder $order)
+    {
+        try {
+            $this->save(
+                $this->getPathForDomainList(self::PATH_CACHE_CERTIFICATE_ORDER, $domains),
+                $this->serializer->serialize($order, JsonEncoder::FORMAT)
+            );
+        } catch (\Exception $e) {
+            throw new AcmeCliException(sprintf('Storing of domains %s certificate order failed', implode(', ', $domains)), $e);
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function hasCertificateOrder(array $domains)
+    {
+        return $this->master->has($this->getPathForDomainList(self::PATH_CACHE_CERTIFICATE_ORDER, $domains));
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function loadCertificateOrder(array $domains)
+    {
+        try {
+            $json = $this->master->read($this->getPathForDomainList(self::PATH_CACHE_CERTIFICATE_ORDER, $domains));
+
+            return $this->serializer->deserialize($json, CertificateOrder::class, JsonEncoder::FORMAT);
+        } catch (\Exception $e) {
+            throw new AcmeCliException(sprintf('Loading of domains %s certificate order failed', implode(', ', $domains)), $e);
+        }
     }
 
     /**
@@ -350,7 +412,7 @@ class Repository implements RepositoryInterface
         if ($this->enableBackup) {
             $oldContent = $this->master->read($path);
 
-            if ($oldContent !== false) {
+            if (false !== $oldContent) {
                 if ($this->backup->has($path)) {
                     $this->backup->update($path, $oldContent);
                 } else {
@@ -360,5 +422,18 @@ class Repository implements RepositoryInterface
         }
 
         $this->master->update($path, $content);
+    }
+
+    private function normalizeDomain($domain)
+    {
+        return $domain;
+    }
+
+    private function normalizeDomainList(array $domains)
+    {
+        $normalizedDomains = array_unique(array_map([$this, 'normalizeDomain'], $domains));
+        sort($normalizedDomains);
+
+        return (isset($domains[0]) ? $this->normalizeDomain($domains[0]) : '-').'/'.sha1(json_encode($normalizedDomains));
     }
 }

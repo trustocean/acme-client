@@ -1,16 +1,12 @@
 Acme PHP
 ========
 
-[![Join the chat at https://gitter.im/acmephp/acmephp](https://badges.gitter.im/acmephp/acmephp.svg)](https://gitter.im/acmephp/acmephp?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 [![Build Status](https://img.shields.io/travis/acmephp/acmephp/master.svg?style=flat-square)](https://travis-ci.org/acmephp/acmephp)
-[![Quality Score](https://img.shields.io/scrutinizer/g/acmephp/acmephp.svg?style=flat-square)](https://scrutinizer-ci.com/g/acmephp/acmephp)
 [![StyleCI](https://styleci.io/repos/59910490/shield)](https://styleci.io/repos/59910490)
 [![Packagist Version](https://img.shields.io/packagist/v/acmephp/acmephp.svg?style=flat-square)](https://packagist.org/packages/acmephp/acmephp)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
 
-> **Note:** This project is in beta but follow a strict BC policy, even in beta (see
-> [the Backward Compatibility policy of Acme PHP](#backward-compatibility-policy) for more informations).
+[![SymfonyInsight](https://insight.symfony.com/projects/4eb121bf-9f9d-4d16-813b-f98f07003eaf/big.svg)](https://insight.symfony.com/projects/4eb121bf-9f9d-4d16-813b-f98f07003eaf)
 
 Acme PHP is a simple yet very extensible CLI client for Let's Encrypt that will help
 you get and renew free HTTPS certificates.
@@ -18,7 +14,12 @@ you get and renew free HTTPS certificates.
 Acme PHP is also an initiative to bring a robust, stable and powerful implementation
 of the ACME protocol in PHP. Using the Acme PHP library and core components, you will be
 able to deeply integrate the management of your certificates directly in your application
-(for instance, renew your certificates from your web interface).
+(for instance, renew your certificates from your web interface). If you are interested
+by these features, have a look at the [acmephp/core](https://github.com/acmephp/core) and
+[acmephp/ssl](https://github.com/acmephp/ssl) libraries.
+
+> If you want to chat with us or have questions, ping
+> @tgalopin or @jderusse on the [Symfony Slack](https://symfony.com/support)!
 
 ## Why should I use Acme PHP when I have an official client?
 
@@ -30,7 +31,7 @@ Acme PHP provides several major improvements over the default clients:
     E-mail, Slack, HipChat, Flowdock, Fleep (thanks to [Monolog](https://github.com/Seldaek/monolog)!)
 -   Acme PHP is very extensible it to create the certificate files structure you need for your webserver.
     It brings several default formatters to create classical file structures
-    (nginx, nginx-proxy, haproxy, etc.) but you can very easily create our own if you need to ;
+    (nginx, nginx-proxy, haproxy, etc.) but you can very easily create your own if you need to ;
 -   Acme PHP follows a strict BC policy preventing errors in your scripts or CRON even if you update it (see
     [the Backward Compatibility policy of Acme PHP](#backward-compatibility-policy) for more informations) ;
 
@@ -40,7 +41,7 @@ Read the official [Acme PHP documentation](https://acmephp.github.io).
 
 ## Backward Compatibility policy
 
-Acme PHP follows a strict BC policy by sticking carefully to [semantic versioning](http://semver.org). This means 
+Acme PHP follows a strict BC policy by sticking carefully to [semantic versioning](http://semver.org). This means
 your scripts, your CRON tasks and your code will keep working properly even when you update Acme PHP (either the CLI
 tool or the library), as long as you keep the same major version (1.X.X, 2.X.X, etc.).
 
@@ -76,3 +77,62 @@ they are due to an issue in the container DNS.
 **Warning**: as the acmephp/testing-ca Docker image needs to be mapped to the host network,
 you may have ports conflicts. See [https://github.com/acmephp/testing-ca](https://github.com/acmephp/testing-ca)
 for more informations.
+
+## Run command
+
+The run command is an all in one command who works with a `domain`
+config file like
+
+```yaml
+contact_email: contact@company
+key_type: RSA                                          # RSA or EC (for ECDSA). Default "RSA"
+
+defaults:
+  distinguished_name:
+      country: FR
+      locality: Paris
+      organization_name: MyCompany
+  solver: http
+
+certificates:
+  - domain: example.com
+    distinguished_name:
+      organization_name: MyCompany Internal
+    solver: route53
+    subject_alternative_names:
+      - '*.example.com'
+      - www.subdomain.example.com
+    install:
+      - action: install_aws_elb
+        region: eu-west-1
+        loadbalancer: my_elb
+  - domain: www.example.com
+    solver:
+      name: http-file
+      adapter: ftp                                     # ftp or sftp or local, see https://flysystem.thephpleague.com/
+      root: /var/www/
+      host: ftp.example.com
+      username: username
+      password: password
+      # port: 21
+      # passive: true
+      # ssl: true
+      # timeout: 30
+      # privateKey: path/to/or/contents/of/privatekey
+```
+
+usage
+
+```bash
+$ acmephp run path-to-config.yml
+```
+
+## Using docker
+
+You can also use the docker image to generate certificates.
+Certificates and keys are stored into the volume `/root/.acmephp`
+
+```
+docker run --rm -ti -v /cache/.acmephp:/root/.acmephp -v $PWD/.config.yml:/etc/acmephp.yml:ro acmephp/acmephp:latest run /etc/acmephp.yml
+```
+

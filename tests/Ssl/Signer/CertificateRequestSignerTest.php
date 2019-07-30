@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -14,9 +14,11 @@ namespace Tests\AcmePhp\Ssl\Signer;
 use AcmePhp\Ssl\CertificateRequest;
 use AcmePhp\Ssl\DistinguishedName;
 use AcmePhp\Ssl\Generator\KeyPairGenerator;
+use AcmePhp\Ssl\Generator\RsaKey\RsaKeyOption;
 use AcmePhp\Ssl\Signer\CertificateRequestSigner;
+use PHPUnit\Framework\TestCase;
 
-class CertificateRequestSignerTest extends \PHPUnit_Framework_TestCase
+class CertificateRequestSignerTest extends TestCase
 {
     /** @var CertificateRequestSigner */
     private $service;
@@ -34,7 +36,7 @@ class CertificateRequestSignerTest extends \PHPUnit_Framework_TestCase
             'acmephp.com',
             'FR', 'france', 'Paris', 'acme', 'IT', 'qa@acmephp.com', []
         );
-        $dummyKeyPair = (new KeyPairGenerator())->generateKeyPair(1024);
+        $dummyKeyPair = (new KeyPairGenerator())->generateKeyPair(new RsaKeyOption(1024));
 
         $result = $this->service->signCertificateRequest(
             new CertificateRequest($dummyDistinguishedName, $dummyKeyPair)
@@ -45,14 +47,13 @@ class CertificateRequestSignerTest extends \PHPUnit_Framework_TestCase
         $csrResult = openssl_csr_get_subject($result, false);
         $this->assertSame(
             [
-                'commonName'             => 'acmephp.com',
-                'countryName'            => 'FR',
-                'stateOrProvinceName'    => 'france',
-                'localityName'           => 'Paris',
-                'organizationName'       => 'acme',
+                'countryName' => 'FR',
+                'stateOrProvinceName' => 'france',
+                'localityName' => 'Paris',
+                'organizationName' => 'acme',
                 'organizationalUnitName' => 'IT',
-                'emailAddress'           => 'qa@acmephp.com',
-
+                'commonName' => 'acmephp.com',
+                'emailAddress' => 'qa@acmephp.com',
             ],
             $csrResult
         );
@@ -63,7 +64,7 @@ class CertificateRequestSignerTest extends \PHPUnit_Framework_TestCase
         $dummyDistinguishedName = new DistinguishedName(
             'acmephp.com'
         );
-        $dummyKeyPair = (new KeyPairGenerator())->generateKeyPair(1024);
+        $dummyKeyPair = (new KeyPairGenerator())->generateKeyPair(new RsaKeyOption(1024));
 
         $result = $this->service->signCertificateRequest(
             new CertificateRequest($dummyDistinguishedName, $dummyKeyPair)
@@ -74,7 +75,6 @@ class CertificateRequestSignerTest extends \PHPUnit_Framework_TestCase
         $this->assertSame(
             [
                 'commonName' => 'acmephp.com',
-
             ],
             $csrResult
         );
@@ -86,7 +86,7 @@ class CertificateRequestSignerTest extends \PHPUnit_Framework_TestCase
             'acmephp.com',
             'FR', 'france', 'Paris', 'acme', 'IT', 'qa@acmephp.com', ['www.acmephp.com']
         );
-        $dummyKeyPair = (new KeyPairGenerator())->generateKeyPair(1024);
+        $dummyKeyPair = (new KeyPairGenerator())->generateKeyPair(new RsaKeyOption(1024));
 
         $result = $this->service->signCertificateRequest(
             new CertificateRequest($dummyDistinguishedName, $dummyKeyPair)
@@ -97,14 +97,13 @@ class CertificateRequestSignerTest extends \PHPUnit_Framework_TestCase
         $csrResult = openssl_csr_get_subject($result, false);
         $this->assertSame(
             [
-                'commonName'             => 'acmephp.com',
-                'countryName'            => 'FR',
-                'stateOrProvinceName'    => 'france',
-                'localityName'           => 'Paris',
-                'organizationName'       => 'acme',
+                'countryName' => 'FR',
+                'stateOrProvinceName' => 'france',
+                'localityName' => 'Paris',
+                'organizationName' => 'acme',
                 'organizationalUnitName' => 'IT',
-                'emailAddress'           => 'qa@acmephp.com',
-
+                'commonName' => 'acmephp.com',
+                'emailAddress' => 'qa@acmephp.com',
             ],
             $csrResult
         );

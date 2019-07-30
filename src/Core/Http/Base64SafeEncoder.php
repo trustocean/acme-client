@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -35,7 +35,7 @@ class Base64SafeEncoder
      */
     public function decode($input)
     {
-        $remainder = strlen($input) % 4;
+        $remainder = \strlen($input) % 4;
 
         if ($remainder) {
             $padlen = 4 - $remainder;

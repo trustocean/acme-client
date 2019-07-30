@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -14,21 +14,20 @@ namespace Tests\AcmePhp\Core\Challenge\Http;
 use AcmePhp\Core\Challenge\Http\HttpDataExtractor;
 use AcmePhp\Core\Challenge\Http\SimpleHttpSolver;
 use AcmePhp\Core\Protocol\AuthorizationChallenge;
+use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class SimpleHttpSolverTest extends \PHPUnit_Framework_TestCase
+class SimpleHttpSolverTest extends TestCase
 {
     public function testSupports()
     {
         $typeDns = 'dns-01';
         $typeHttp = 'http-01';
 
-        $mockExtractor = $this->prophesize(HttpDataExtractor::class);
-        $mockOutput = $this->prophesize(OutputInterface::class);
         $stubChallenge = $this->prophesize(AuthorizationChallenge::class);
 
-        $solver = new SimpleHttpSolver($mockExtractor->reveal(), $mockOutput->reveal());
+        $solver = new SimpleHttpSolver();
 
         $stubChallenge->getType()->willReturn($typeDns);
         $this->assertFalse($solver->supports($stubChallenge->reveal()));

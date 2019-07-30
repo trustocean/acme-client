@@ -1,26 +1,20 @@
 Acme PHP SSL library
 ====================
 
-[![Join the chat at https://gitter.im/acmephp/acmephp](https://badges.gitter.im/acmephp/acmephp.svg)](https://gitter.im/acmephp/acmephp?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 [![Build Status](https://img.shields.io/travis/acmephp/acmephp/master.svg?style=flat-square)](https://travis-ci.org/acmephp/acmephp)
 [![Quality Score](https://img.shields.io/scrutinizer/g/acmephp/acmephp.svg?style=flat-square)](https://scrutinizer-ci.com/g/acmephp/acmephp)
 [![StyleCI](https://styleci.io/repos/59910490/shield)](https://styleci.io/repos/59910490)
 [![Packagist Version](https://img.shields.io/packagist/v/acmephp/acmephp.svg?style=flat-square)](https://packagist.org/packages/acmephp/acmephp)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
 
-> **Note:** This project is in beta but follow a strict BC policy, even in beta (see
-> [the Backward Compatibility policy of Acme PHP](https://github.com/acmephp/acmephp#backward-compatibility-policy)
-> for more informations).
->
-> Moreover, this repository is in beta stage only to follow the same versionning as the global project.
-> This library's API won't change in the near future (we don't want BC breaks now).
-
 Acme PHP SSL is a PHP wrapper around OpenSSL extension providing SSL encoding,
 decoding, parsing and signing features.
 
 It uses the recommended security settings and let you interact in a OOP
 manner with SSL entities (public/private keys, certificates, ...).
+
+> If you want to chat with us or have questions, ping
+> @tgalopin or @jderusse on the [Symfony Slack](https://symfony.com/support)!
 
 ## Why use Acme PHP SSL?
 

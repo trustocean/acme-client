@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -13,8 +13,9 @@ namespace Tests\AcmePhp\Core\Challenge\Http;
 
 use AcmePhp\Core\Challenge\Http\HttpDataExtractor;
 use AcmePhp\Core\Protocol\AuthorizationChallenge;
+use PHPUnit\Framework\TestCase;
 
-class HttpDataExtractorTest extends \PHPUnit_Framework_TestCase
+class HttpDataExtractorTest extends TestCase
 {
     public function testGetCheckUrl()
     {

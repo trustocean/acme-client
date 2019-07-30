@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -19,8 +19,9 @@ use AcmePhp\Ssl\Generator\KeyPairGenerator;
 use AcmePhp\Ssl\Parser\KeyParser;
 use AcmePhp\Ssl\Signer\DataSigner;
 use GuzzleHttp\Client;
+use PHPUnit\Framework\TestCase;
 
-class SecureHttpClientFactoryTest extends \PHPUnit_Framework_TestCase
+class SecureHttpClientFactoryTest extends TestCase
 {
     public function testCreateClient()
     {

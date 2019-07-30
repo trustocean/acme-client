@@ -40,19 +40,14 @@ class BuildNginxProxyAction implements ActionInterface
     /**
      * {@inheritdoc}
      */
-    public function getName()
-    {
-        return 'build_nginxproxy';
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function handle($config, CertificateResponse $response)
     {
         $domain = $response->getCertificateRequest()->getDistinguishedName()->getCommonName();
         $privateKey = $response->getCertificateRequest()->getKeyPair()->getPrivateKey();
         $certificate = $response->getCertificate();
+
+        // To handle wildcard certs
+        $domain = ltrim($domain, '*.');
 
         $this->repository->save('nginxproxy/'.$domain.'.key', $privateKey->getPEM());
 
@@ -62,7 +57,7 @@ class BuildNginxProxyAction implements ActionInterface
         }, $certificate->getIssuerChain());
 
         // Full chain
-        $fullChainPem = $certificate->getPEM().implode("\n", $issuerChain);
+        $fullChainPem = $certificate->getPEM()."\n".implode("\n", $issuerChain);
 
         $this->repository->save('nginxproxy/'.$domain.'.crt', $fullChainPem);
     }

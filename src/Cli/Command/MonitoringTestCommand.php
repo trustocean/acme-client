@@ -49,17 +49,17 @@ EOF
         $this->info('Loading monitoring configuration...');
 
         /** @var LoggerInterface $monitoringLogger */
-        $monitoringLogger = $this->getContainer()->get('monitoring_factory')->createLogger();
+        $monitoringLogger = $this->getContainer()->get('acmephp.monitoring_factory')->createLogger();
 
         $level = $input->getArgument('level');
 
-        if (!in_array($level, [HandlerBuilderInterface::LEVEL_ERROR, HandlerBuilderInterface::LEVEL_INFO], true)) {
+        if (!\in_array($level, [HandlerBuilderInterface::LEVEL_ERROR, HandlerBuilderInterface::LEVEL_INFO], true)) {
             throw new AcmeCliException('Level '.$level.' is not valid (available levels: info, error)');
         }
 
         $this->info('Triggering monitoring on "'.$level.'" level...');
 
-        if ($level === HandlerBuilderInterface::LEVEL_INFO) {
+        if (HandlerBuilderInterface::LEVEL_INFO === $level) {
             $monitoringLogger->info('This is a testing message from Acme PHP monitoring (info level)');
         } else {
             $monitoringLogger->alert('This is a testing message from Acme PHP monitoring (error level)');

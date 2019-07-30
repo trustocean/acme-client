@@ -222,15 +222,16 @@ class SelfUpdateCommand extends Command
     protected function update(Updater $updater)
     {
         $this->output->writeln('Updating...'.PHP_EOL);
+
         try {
             $result = $updater->update();
 
             $newVersion = $updater->getNewVersion();
             $oldVersion = $updater->getOldVersion();
-            if (strlen($newVersion) == 40) {
+            if (40 === \strlen($newVersion)) {
                 $newVersion = 'dev-'.$newVersion;
             }
-            if (strlen($oldVersion) == 40) {
+            if (40 === \strlen($oldVersion)) {
                 $oldVersion = 'dev-'.$oldVersion;
             }
 
@@ -261,6 +262,7 @@ class SelfUpdateCommand extends Command
     protected function rollback()
     {
         $updater = new Updater();
+
         try {
             $result = $updater->rollback();
             if ($result) {
@@ -311,7 +313,7 @@ class SelfUpdateCommand extends Command
         if ($updater->getStrategy() instanceof ShaStrategy) {
             $stability = 'development';
         } elseif ($updater->getStrategy() instanceof GithubStrategy
-            && $updater->getStrategy()->getStability() == GithubStrategy::UNSTABLE) {
+            && GithubStrategy::UNSTABLE === $updater->getStrategy()->getStability()) {
             $stability = 'pre-release';
         }
 
@@ -322,7 +324,7 @@ class SelfUpdateCommand extends Command
                     $stability,
                     $updater->getNewVersion()
                 ));
-            } elseif (false == $updater->getNewVersion()) {
+            } elseif (false === $updater->getNewVersion()) {
                 $this->output->writeln(sprintf('There are no %s builds available.', $stability));
             } else {
                 $this->output->writeln(sprintf('You have the current %s build installed.', $stability));

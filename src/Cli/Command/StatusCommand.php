@@ -15,6 +15,7 @@ use AcmePhp\Ssl\Parser\CertificateParser;
 use League\Flysystem\FilesystemInterface;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -29,6 +30,7 @@ class StatusCommand extends AbstractCommand
     {
         $this->setName('status')
             ->setDescription('List all the certificates handled by Acme PHP')
+            ->addOption('all', 'a', InputOption::VALUE_NONE, 'include expired certificates too')
             ->setHelp(<<<'EOF'
 The <info>%command.name%</info> command list all the certificates stored in the Acme PHP storage.
 It also displays useful informations about these such as the certificate validity and issuer.
@@ -55,15 +57,18 @@ EOF
         $directories = $master->listContents('certs');
 
         foreach ($directories as $directory) {
-            if ($directory['type'] !== 'dir') {
+            if ('dir' !== $directory['type']) {
                 continue;
             }
 
             $parsedCertificate = $certificateParser->parse($repository->loadDomainCertificate($directory['basename']));
+            if (!$input->getOption('all') && $parsedCertificate->isExpired()) {
+                continue;
+            }
             $domainString = $parsedCertificate->getSubject();
 
             $alternativeNames = array_diff($parsedCertificate->getSubjectAlternativeNames(), [$parsedCertificate->getSubject()]);
-            if (count($alternativeNames)) {
+            if (\count($alternativeNames)) {
                 sort($alternativeNames);
                 $last = array_pop($alternativeNames);
                 foreach ($alternativeNames as $alternativeName) {

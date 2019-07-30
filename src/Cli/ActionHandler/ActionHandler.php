@@ -14,8 +14,8 @@ namespace AcmePhp\Cli\ActionHandler;
 use AcmePhp\Cli\Exception\AcmeCliActionException;
 use AcmePhp\Cli\Exception\AcmeCliException;
 use AcmePhp\Ssl\CertificateResponse;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * @author Titouan Galopin <galopintitouan@gmail.com>
@@ -25,7 +25,7 @@ class ActionHandler
     /**
      * @var ContainerInterface
      */
-    private $container;
+    private $actionLocator;
 
     /**
      * @var LoggerInterface
@@ -38,13 +38,13 @@ class ActionHandler
     private $postGenerateConfig;
 
     /**
-     * @param ContainerInterface $container
+     * @param ContainerInterface $actionLocator
      * @param LoggerInterface    $cliLogger
      * @param array              $postGenerateConfig
      */
-    public function __construct(ContainerInterface $container, LoggerInterface $cliLogger, array $postGenerateConfig)
+    public function __construct(ContainerInterface $actionLocator, LoggerInterface $cliLogger, array $postGenerateConfig)
     {
-        $this->container = $container;
+        $this->actionLocator = $actionLocator;
         $this->cliLogger = $cliLogger;
         $this->postGenerateConfig = $postGenerateConfig;
     }
@@ -54,8 +54,8 @@ class ActionHandler
      *
      * @param CertificateResponse $response
      *
-     * @throws AcmeCliException       If the configuration is invalid.
-     * @throws AcmeCliActionException If there is a problem during the execution of an action.
+     * @throws AcmeCliException       if the configuration is invalid
+     * @throws AcmeCliActionException if there is a problem during the execution of an action
      */
     public function handle(CertificateResponse $response)
     {
@@ -73,18 +73,10 @@ class ActionHandler
             $name = $actionConfig['action'];
             unset($actionConfig['action']);
 
-            if (!$this->container->has('action.'.$name)) {
-                throw new AcmeCliException(sprintf(
-                    'Action %s does not exists at key storage.post_generate.%s.',
-                    $name,
-                    $key
-                ));
-            }
-
             $actions[] = [
-                'handler' => $this->container->get('action.'.$name),
-                'name'    => $name,
-                'config'  => $actionConfig,
+                'handler' => $this->actionLocator->get($name),
+                'name' => $name,
+                'config' => $actionConfig,
             ];
         }
 

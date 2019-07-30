@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -22,11 +22,12 @@ use AcmePhp\Ssl\PrivateKey;
 use AcmePhp\Ssl\PublicKey;
 use League\Flysystem\Filesystem;
 use League\Flysystem\Memory\MemoryAdapter;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
 use Symfony\Component\Serializer\Normalizer\GetSetMethodNormalizer;
 use Symfony\Component\Serializer\Serializer;
 
-abstract class AbstractRepositoryTest extends \PHPUnit_Framework_TestCase
+abstract class AbstractRepositoryTest extends TestCase
 {
     /**
      * @var Serializer
@@ -67,8 +68,8 @@ abstract class AbstractRepositoryTest extends \PHPUnit_Framework_TestCase
     {
         $this->repository->storeAccountKeyPair(new KeyPair(new PublicKey('public'), new PrivateKey('private')));
 
-        $this->assertEquals("public\n", $this->master->read('private/_account/public.pem'));
-        $this->assertEquals("private\n", $this->master->read('private/_account/private.pem'));
+        $this->assertEquals("public\n", $this->master->read('account/key.public.pem'));
+        $this->assertEquals("private\n", $this->master->read('account/key.private.pem'));
     }
 
     public function testLoadAccountKeyPair()
@@ -93,8 +94,8 @@ abstract class AbstractRepositoryTest extends \PHPUnit_Framework_TestCase
     {
         $this->repository->storeDomainKeyPair('example.com', new KeyPair(new PublicKey('public'), new PrivateKey('private')));
 
-        $this->assertEquals("public\n", $this->master->read('private/example.com/public.pem'));
-        $this->assertEquals("private\n", $this->master->read('private/example.com/private.pem'));
+        $this->assertEquals("public\n", $this->master->read('certs/example.com/private/key.public.pem'));
+        $this->assertEquals("private\n", $this->master->read('certs/example.com/private/key.private.pem'));
     }
 
     public function testLoadDomainKeyPair()
@@ -119,6 +120,7 @@ abstract class AbstractRepositoryTest extends \PHPUnit_Framework_TestCase
     {
         $challenge = new AuthorizationChallenge(
             'example.org',
+            'valid',
             'http-01',
             'https://acme-v01.api.letsencrypt.org/acme/challenge/bzHDB1T3ssGlGEfK_j-sTsCz6eayLww_Eb56wQpEtCk/124845837',
             'wJDbK9uuuz56O6z_dhMFStHQf4JnEYU9A8WJi7lS8MA',
@@ -127,7 +129,7 @@ abstract class AbstractRepositoryTest extends \PHPUnit_Framework_TestCase
 
         $this->repository->storeDomainAuthorizationChallenge('example.com', $challenge);
 
-        $json = $this->master->read('private/example.com/authorization_challenge.json');
+        $json = $this->master->read('var/example.com/authorization_challenge.json');
         $this->assertJson($json);
 
         $data = json_decode($json, true);
@@ -143,6 +145,7 @@ abstract class AbstractRepositoryTest extends \PHPUnit_Framework_TestCase
     {
         $challenge = new AuthorizationChallenge(
             'example.org',
+            'valid',
             'http-01',
             'https://acme-v01.api.letsencrypt.org/acme/challenge/bzHDB1T3ssGlGEfK_j-sTsCz6eayLww_Eb56wQpEtCk/124845837',
             'wJDbK9uuuz56O6z_dhMFStHQf4JnEYU9A8WJi7lS8MA',
@@ -178,7 +181,7 @@ abstract class AbstractRepositoryTest extends \PHPUnit_Framework_TestCase
 
         $this->repository->storeDomainDistinguishedName('example.com', $dn);
 
-        $json = $this->master->read('private/example.com/distinguished_name.json');
+        $json = $this->master->read('var/example.com/distinguished_name.json');
         $this->assertJson($json);
 
         $data = json_decode($json, true);
@@ -227,10 +230,10 @@ abstract class AbstractRepositoryTest extends \PHPUnit_Framework_TestCase
         $this->repository->storeDomainKeyPair('example.com', new KeyPair(new PublicKey('public'), new PrivateKey('private')));
         $this->repository->storeDomainCertificate('example.com', $cert);
 
-        $this->assertEquals(self::$certPem."\n", $this->master->read('certs/example.com/cert.pem'));
-        $this->assertEquals(self::$issuerCertPem."\n", $this->master->read('certs/example.com/chain.pem'));
-        $this->assertEquals(self::$certPem."\n".self::$issuerCertPem."\n", $this->master->read('certs/example.com/fullchain.pem'));
-        $this->assertEquals(self::$certPem."\n".self::$issuerCertPem."\nprivate\n", $this->master->read('certs/example.com/combined.pem'));
+        $this->assertEquals(self::$certPem."\n".self::$issuerCertPem."\nprivate\n", $this->master->read('certs/example.com/private/combined.pem'));
+        $this->assertEquals(self::$certPem."\n", $this->master->read('certs/example.com/public/cert.pem'));
+        $this->assertEquals(self::$issuerCertPem."\n", $this->master->read('certs/example.com/public/chain.pem'));
+        $this->assertEquals(self::$certPem."\n".self::$issuerCertPem."\n", $this->master->read('certs/example.com/public/fullchain.pem'));
     }
 
     public function testLoadDomainCertificate()

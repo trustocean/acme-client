@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -14,13 +14,15 @@ namespace AcmePhp\Core;
 use AcmePhp\Core\Exception\AcmeCoreClientException;
 use AcmePhp\Core\Exception\AcmeCoreServerException;
 use AcmePhp\Core\Exception\Protocol\CertificateRequestFailedException;
-use AcmePhp\Core\Exception\Protocol\CertificateRequestTimedOutException;
+use AcmePhp\Core\Exception\Protocol\CertificateRevocationException;
 use AcmePhp\Core\Exception\Protocol\ChallengeFailedException;
 use AcmePhp\Core\Exception\Protocol\ChallengeNotSupportedException;
 use AcmePhp\Core\Exception\Protocol\ChallengeTimedOutException;
 use AcmePhp\Core\Http\SecureHttpClient;
 use AcmePhp\Core\Protocol\AuthorizationChallenge;
+use AcmePhp\Core\Protocol\CertificateOrder;
 use AcmePhp\Core\Protocol\ResourcesDirectory;
+use AcmePhp\Core\Protocol\RevocationReason;
 use AcmePhp\Ssl\Certificate;
 use AcmePhp\Ssl\CertificateRequest;
 use AcmePhp\Ssl\CertificateResponse;
@@ -32,12 +34,17 @@ use Webmozart\Assert\Assert;
  *
  * @author Titouan Galopin <galopintitouan@gmail.com>
  */
-class AcmeClient implements AcmeClientInterface
+class AcmeClient implements AcmeClientV2Interface
 {
     /**
      * @var SecureHttpClient
      */
-    private $httpClient;
+    private $uninitializedHttpClient;
+
+    /**
+     * @var SecureHttpClient
+     */
+    private $initializedHttpClient;
 
     /**
      * @var CertificateRequestSigner
@@ -55,15 +62,34 @@ class AcmeClient implements AcmeClientInterface
     private $directory;
 
     /**
+     * @var string
+     */
+    private $account;
+
+    /**
      * @param SecureHttpClient              $httpClient
      * @param string                        $directoryUrl
      * @param CertificateRequestSigner|null $csrSigner
      */
     public function __construct(SecureHttpClient $httpClient, $directoryUrl, CertificateRequestSigner $csrSigner = null)
     {
-        $this->httpClient = $httpClient;
+        $this->uninitializedHttpClient = $httpClient;
         $this->directoryUrl = $directoryUrl;
         $this->csrSigner = $csrSigner ?: new CertificateRequestSigner();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getHttpClient()
+    {
+        if (!$this->initializedHttpClient) {
+            $this->initializedHttpClient = $this->uninitializedHttpClient;
+
+            $this->initializedHttpClient->setNonceEndpoint($this->getResourceUrl(ResourcesDirectory::NEW_NONCE));
+        }
+
+        return $this->initializedHttpClient;
     }
 
     /**
@@ -74,35 +100,18 @@ class AcmeClient implements AcmeClientInterface
         Assert::nullOrString($agreement, 'registerAccount::$agreement expected a string or null. Got: %s');
         Assert::nullOrString($email, 'registerAccount::$email expected a string or null. Got: %s');
 
-        $payload = [];
-        $payload['resource'] = ResourcesDirectory::NEW_REGISTRATION;
-        $payload['agreement'] = $agreement;
+        $payload = [
+            'termsOfServiceAgreed' => true,
+            'contact' => [],
+        ];
 
-        if (is_string($email)) {
-            $payload['contact'] = ['mailto:'.$email];
+        if (\is_string($email)) {
+            $payload['contact'][] = 'mailto:'.$email;
         }
 
-        $response = (array) $this->requestResource('POST', ResourcesDirectory::NEW_REGISTRATION, $payload);
-        $links = $this->httpClient->getLastLinks();
-        foreach ($links as $link) {
-            if ('terms-of-service' === $link['rel']) {
-                $agreement = substr($link[0], 1, -1);
-                $payload = [];
-                $payload['resource'] = ResourcesDirectory::REGISTRATION;
-                $payload['agreement'] = $agreement;
+        $this->requestResource('POST', ResourcesDirectory::NEW_ACCOUNT, $payload);
 
-                $this->httpClient->signedRequest(
-                    'POST',
-                    $this->httpClient->getLastLocation(),
-                    $payload,
-                    true
-                );
-
-                break;
-            }
-        }
-
-        return $response;
+        return $this->getHttpClient()->signedKidRequest('POST', $this->getResourceAccount(), $this->getResourceAccount());
     }
 
     /**
@@ -110,49 +119,59 @@ class AcmeClient implements AcmeClientInterface
      */
     public function requestAuthorization($domain)
     {
-        Assert::string($domain, 'requestAuthorization::$domain expected a string. Got: %s');
+        $order = $this->requestOrder([$domain]);
+
+        try {
+            return $order->getAuthorizationChallenges($domain);
+        } catch (AcmeCoreClientException $e) {
+            throw new ChallengeNotSupportedException();
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function requestOrder(array $domains)
+    {
+        Assert::allStringNotEmpty($domains, 'requestOrder::$domains expected a list of strings. Got: %s');
 
         $payload = [
-            'resource'   => ResourcesDirectory::NEW_AUTHORIZATION,
-            'identifier' => [
-                'type'  => 'dns',
-                'value' => $domain,
-            ],
+            'identifiers' => array_map(
+                function ($domain) {
+                    return [
+                        'type' => 'dns',
+                        'value' => $domain,
+                    ];
+                },
+                array_values($domains)
+            ),
         ];
 
-        $response = $this->requestResource('POST', ResourcesDirectory::NEW_AUTHORIZATION, $payload);
-
-        if (!isset($response['challenges']) || !$response['challenges']) {
+        $response = $this->getHttpClient()->signedKidRequest('POST', $this->getResourceUrl(ResourcesDirectory::NEW_ORDER), $this->getResourceAccount(), $payload);
+        if (!isset($response['authorizations']) || !$response['authorizations']) {
             throw new ChallengeNotSupportedException();
         }
 
-        $base64encoder = $this->httpClient->getBase64Encoder();
-        $keyParser = $this->httpClient->getKeyParser();
-        $accountKeyPair = $this->httpClient->getAccountKeyPair();
-
-        $parsedKey = $keyParser->parse($accountKeyPair->getPrivateKey());
-
-        $header = json_encode([
-            // This order matters
-            'e'   => $base64encoder->encode($parsedKey->getDetail('e')),
-            'kty' => 'RSA',
-            'n'   => $base64encoder->encode($parsedKey->getDetail('n')),
-        ]);
-
-        $encodedHeader = $base64encoder->encode(hash('sha256', $header, true));
-
-        $authorizationChallenges = [];
-        foreach ($response['challenges'] as $challenge) {
-            $authorizationChallenges[] = new AuthorizationChallenge(
-                $domain,
-                $challenge['type'],
-                $challenge['uri'],
-                $challenge['token'],
-                $challenge['token'].'.'.$encodedHeader
-            );
+        $orderEndpoint = $this->getHttpClient()->getLastLocation();
+        foreach ($response['authorizations'] as $authorizationEndpoint) {
+            $authorizationsResponse = $this->getHttpClient()->unsignedRequest('GET', $authorizationEndpoint, null, true);
+            $domain = (empty($authorizationsResponse['wildcard']) ? '' : '*.').$authorizationsResponse['identifier']['value'];
+            foreach ($authorizationsResponse['challenges'] as $challenge) {
+                $authorizationsChallenges[$domain][] = $this->createAuthorizationChallenge($authorizationsResponse['identifier']['value'], $challenge);
+            }
         }
 
-        return $authorizationChallenges;
+        return new CertificateOrder($authorizationsChallenges, $orderEndpoint);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function reloadAuthorization(AuthorizationChallenge $challenge)
+    {
+        $response = (array) $this->getHttpClient()->unsignedRequest('GET', $challenge->getUrl());
+
+        return $this->createAuthorizationChallenge($challenge->getDomain(), $response);
     }
 
     /**
@@ -162,30 +181,23 @@ class AcmeClient implements AcmeClientInterface
     {
         Assert::integer($timeout, 'challengeAuthorization::$timeout expected an integer. Got: %s');
 
-        $payload = [
-            'resource'         => ResourcesDirectory::CHALLENGE,
-            'type'             => $challenge->getType(),
-            'keyAuthorization' => $challenge->getPayload(),
-            'token'            => $challenge->getToken(),
-        ];
-
-        if (!$this->directory) {
-            $this->initializeDirectory();
+        $endTime = time() + $timeout;
+        $response = (array) $this->getHttpClient()->unsignedRequest('GET', $challenge->getUrl());
+        if ('pending' === $response['status']) {
+            $response = (array) $this->getHttpClient()->signedKidRequest('POST', $challenge->getUrl(), $this->getResourceAccount(), []);
         }
 
-        $response = (array) $this->httpClient->signedRequest('POST', $challenge->getUrl(), $payload);
         // Waiting loop
-        $endTime = time() + $timeout;
-
         while (time() <= $endTime && (!isset($response['status']) || 'pending' === $response['status'])) {
             sleep(1);
-            $response = (array) $this->httpClient->signedRequest('GET', $challenge->getUrl());
+            $response = (array) $this->getHttpClient()->unsignedRequest('GET', $challenge->getUrl());
         }
 
+        if (isset($response['status']) && 'pending' === $response['status']) {
+            throw new ChallengeTimedOutException($response);
+        }
         if (!isset($response['status']) || 'valid' !== $response['status']) {
             throw new ChallengeFailedException($response);
-        } elseif ('pending' === $response['status']) {
-            throw new ChallengeTimedOutException($response);
         }
 
         return $response;
@@ -199,68 +211,101 @@ class AcmeClient implements AcmeClientInterface
         Assert::stringNotEmpty($domain, 'requestCertificate::$domain expected a non-empty string. Got: %s');
         Assert::integer($timeout, 'requestCertificate::$timeout expected an integer. Got: %s');
 
-        $humanText = ['-----BEGIN CERTIFICATE REQUEST-----', '-----END CERTIFICATE REQUEST-----'];
+        $order = $this->requestOrder(array_unique(array_merge([$domain], $csr->getDistinguishedName()->getSubjectAlternativeNames())));
 
-        $csrContent = $this->csrSigner->signCertificateRequest($csr);
-        $csrContent = trim(str_replace($humanText, '', $csrContent));
-        $csrContent = trim($this->httpClient->getBase64Encoder()->encode(base64_decode($csrContent)));
+        return $this->finalizeOrder($order, $csr, $timeout);
+    }
 
-        $response = $this->requestResource('POST', ResourcesDirectory::NEW_CERTIFICATE, [
-            'resource' => ResourcesDirectory::NEW_CERTIFICATE,
-            'csr'      => $csrContent,
-        ], false);
+    /**
+     * {@inheritdoc}
+     */
+    public function finalizeOrder(CertificateOrder $order, CertificateRequest $csr, $timeout = 180)
+    {
+        Assert::integer($timeout, 'finalizeOrder::$timeout expected an integer. Got: %s');
 
-        // If the CA has not yet issued the certificate, the body of this response will be empty
-        if (strlen(trim($response)) < 10) { // 10 to avoid false results
-            $location = $this->httpClient->getLastLocation();
+        $endTime = time() + $timeout;
+        $response = $this->getHttpClient()->signedKidRequest('GET', $order->getOrderEndpoint(), $this->getResourceAccount());
+        if (\in_array($response['status'], ['pending', 'ready'])) {
+            $humanText = ['-----BEGIN CERTIFICATE REQUEST-----', '-----END CERTIFICATE REQUEST-----'];
 
-            // Waiting loop
-            $endTime = time() + $timeout;
+            $csrContent = $this->csrSigner->signCertificateRequest($csr);
+            $csrContent = trim(str_replace($humanText, '', $csrContent));
+            $csrContent = trim($this->getHttpClient()->getBase64Encoder()->encode(base64_decode($csrContent)));
 
-            while (time() <= $endTime) {
-                $response = $this->httpClient->unsignedRequest('GET', $location, null, false);
-
-                if (200 === $this->httpClient->getLastCode()) {
-                    break;
-                }
-
-                if (202 !== $this->httpClient->getLastCode()) {
-                    throw new CertificateRequestFailedException($response);
-                }
-
-                sleep(1);
-            }
-
-            if (202 === $this->httpClient->getLastCode()) {
-                throw new CertificateRequestTimedOutException($response);
-            }
+            $response = $this->getHttpClient()->signedKidRequest('POST', $response['finalize'], $this->getResourceAccount(), [
+                'csr' => $csrContent,
+            ]);
         }
 
-        // Find issuers certificate
-        $links = $this->httpClient->getLastLinks();
+        // Waiting loop
+        while (time() <= $endTime && (!isset($response['status']) || \in_array($response['status'], ['pending', 'processing', 'ready']))) {
+            sleep(1);
+            $response = $this->getHttpClient()->signedKidRequest('GET', $order->getOrderEndpoint(), $this->getResourceAccount());
+        }
+
+        if ('valid' !== $response['status']) {
+            throw new CertificateRequestFailedException('The order has not been validated');
+        }
+
+        $response = $this->getHttpClient()->unsignedRequest('GET', $response['certificate'], null, false);
         $certificatesChain = null;
-
-        foreach ($links as $link) {
-            if (!isset($link['rel']) || 'up' !== $link['rel']) {
-                continue;
-            }
-
-            $location = trim($link[0], '<>');
-            $certificate = $this->httpClient->unsignedRequest('GET', $location, null, false);
-
-            if (strlen(trim($certificate)) > 10) {
-                $pem = chunk_split(base64_encode($certificate), 64, "\n");
-                $pem = "-----BEGIN CERTIFICATE-----\n".$pem."-----END CERTIFICATE-----\n";
-
-                $certificatesChain = new Certificate($pem, $certificatesChain);
-            }
+        foreach (array_reverse(explode("\n\n", $response)) as $pem) {
+            $certificatesChain = new Certificate($pem, $certificatesChain);
         }
 
-        // Domain certificate
-        $pem = chunk_split(base64_encode($response), 64, "\n");
-        $pem = "-----BEGIN CERTIFICATE-----\n".$pem."-----END CERTIFICATE-----\n";
+        return new CertificateResponse($csr, $certificatesChain);
+    }
 
-        return new CertificateResponse($csr, new Certificate($pem, $certificatesChain));
+    /**
+     * {@inheritdoc}
+     */
+    public function revokeCertificate(Certificate $certificate, RevocationReason $revocationReason = null)
+    {
+        if (!$this->getResourceUrl(ResourcesDirectory::REVOKE_CERT)) {
+            throw new CertificateRevocationException('This ACME server does not support certificate revocation.');
+        }
+
+        if (null === $revocationReason) {
+            $revocationReason = RevocationReason::createDefaultReason();
+        }
+
+        openssl_x509_export(openssl_x509_read($certificate->getPEM()), $formattedPem);
+
+        $formattedPem = str_ireplace('-----BEGIN CERTIFICATE-----', '', $formattedPem);
+        $formattedPem = str_ireplace('-----END CERTIFICATE-----', '', $formattedPem);
+        $formattedPem = $this->getHttpClient()->getBase64Encoder()->encode(base64_decode(trim($formattedPem)));
+
+        try {
+            $this->getHttpClient()->signedKidRequest(
+                'POST',
+                $this->getResourceUrl(ResourcesDirectory::REVOKE_CERT),
+                $this->getResourceAccount(),
+                ['certificate' => $formattedPem, 'reason' => $revocationReason->getReasonType()],
+                false
+            );
+        } catch (AcmeCoreServerException $e) {
+            throw new CertificateRevocationException($e->getMessage(), $e);
+        } catch (AcmeCoreClientException $e) {
+            throw new CertificateRevocationException($e->getMessage(), $e);
+        }
+    }
+
+    /**
+     * Find a resource URL.
+     *
+     * @param string $resource
+     *
+     * @return string
+     */
+    public function getResourceUrl($resource)
+    {
+        if (!$this->directory) {
+            $this->directory = new ResourcesDirectory(
+                $this->getHttpClient()->unsignedRequest('GET', $this->directoryUrl, null, true)
+            );
+        }
+
+        return $this->directory->getResourceUrl($resource);
     }
 
     /**
@@ -271,32 +316,51 @@ class AcmeClient implements AcmeClientInterface
      * @param array  $payload
      * @param bool   $returnJson
      *
-     * @throws AcmeCoreServerException When the ACME server returns an error HTTP status code.
-     * @throws AcmeCoreClientException When an error occured during response parsing.
+     * @throws AcmeCoreServerException when the ACME server returns an error HTTP status code
+     * @throws AcmeCoreClientException when an error occured during response parsing
      *
      * @return array|string
      */
     protected function requestResource($method, $resource, array $payload, $returnJson = true)
     {
-        if (!$this->directory) {
-            $this->initializeDirectory();
-        }
-
-        return $this->httpClient->signedRequest(
+        return $this->getHttpClient()->signedRequest(
             $method,
-            $this->directory->getResourceUrl($resource),
+            $this->getResourceUrl($resource),
             $payload,
             $returnJson
         );
     }
 
     /**
-     * Initialize the server resources directory.
+     * Retrieve the resource account.
+     *
+     * @return string
      */
-    private function initializeDirectory()
+    private function getResourceAccount()
     {
-        $this->directory = new ResourcesDirectory(
-            $this->httpClient->unsignedRequest('GET', $this->directoryUrl, null, true)
+        if (!$this->account) {
+            $payload = [
+                'onlyReturnExisting' => true,
+            ];
+
+            $this->requestResource('POST', ResourcesDirectory::NEW_ACCOUNT, $payload);
+            $this->account = $this->getHttpClient()->getLastLocation();
+        }
+
+        return $this->account;
+    }
+
+    private function createAuthorizationChallenge($domain, array $response)
+    {
+        $base64encoder = $this->getHttpClient()->getBase64Encoder();
+
+        return new AuthorizationChallenge(
+            $domain,
+            $response['status'],
+            $response['type'],
+            $response['url'],
+            $response['token'],
+            $response['token'].'.'.$base64encoder->encode($this->getHttpClient()->getJWKThumbprint())
         );
     }
 }

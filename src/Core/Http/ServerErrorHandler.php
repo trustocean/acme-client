@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -22,6 +22,7 @@ use AcmePhp\Core\Exception\Server\RateLimitedServerException;
 use AcmePhp\Core\Exception\Server\TlsServerException;
 use AcmePhp\Core\Exception\Server\UnauthorizedServerException;
 use AcmePhp\Core\Exception\Server\UnknownHostServerException;
+use AcmePhp\Core\Util\JsonDecoder;
 use GuzzleHttp\Exception\RequestException;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -34,16 +35,16 @@ use Psr\Http\Message\ResponseInterface;
 class ServerErrorHandler
 {
     private static $exceptions = [
-        'badCSR'         => BadCsrServerException::class,
-        'badNonce'       => BadNonceServerException::class,
-        'connection'     => ConnectionServerException::class,
+        'badCSR' => BadCsrServerException::class,
+        'badNonce' => BadNonceServerException::class,
+        'connection' => ConnectionServerException::class,
         'serverInternal' => InternalServerException::class,
-        'invalidEmail'   => InvalidEmailServerException::class,
-        'malformed'      => MalformedServerException::class,
-        'rateLimited'    => RateLimitedServerException::class,
-        'tls'            => TlsServerException::class,
-        'unauthorized'   => UnauthorizedServerException::class,
-        'unknownHost'    => UnknownHostServerException::class,
+        'invalidEmail' => InvalidEmailServerException::class,
+        'malformed' => MalformedServerException::class,
+        'rateLimited' => RateLimitedServerException::class,
+        'tls' => TlsServerException::class,
+        'unauthorized' => UnauthorizedServerException::class,
+        'unknownHost' => UnknownHostServerException::class,
     ];
 
     /**
@@ -62,7 +63,7 @@ class ServerErrorHandler
 
         $body = \GuzzleHttp\Psr7\copy_to_string($response->getBody());
 
-        if (strlen($body) > 120) {
+        if (\strlen($body) > 120) {
             return substr($body, 0, 120).' (truncated...)';
         }
 
@@ -82,14 +83,19 @@ class ServerErrorHandler
         \Exception $previous = null
     ) {
         $body = \GuzzleHttp\Psr7\copy_to_string($response->getBody());
-        $data = @json_decode($body, true);
+
+        try {
+            $data = JsonDecoder::decode($body, true);
+        } catch (\InvalidArgumentException $e) {
+            $data = null;
+        }
 
         if (!$data || !isset($data['type'], $data['detail'])) {
             // Not JSON: not an ACME error response
             return $this->createDefaultExceptionForResponse($request, $response, $previous);
         }
 
-        $type = preg_replace('/^urn:acme:error:/i', '', $data['type']);
+        $type = preg_replace('/^urn:(ietf:params:)?acme:error:/i', '', $data['type']);
 
         if (!isset(self::$exceptions[$type])) {
             // Unknown type: not an ACME error response

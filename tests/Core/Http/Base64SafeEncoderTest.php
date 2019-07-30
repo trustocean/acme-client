@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of the ACME PHP library.
+ * This file is part of the Acme PHP project.
  *
  * (c) Titouan Galopin <galopintitouan@gmail.com>
  *
@@ -12,8 +12,9 @@
 namespace Tests\AcmePhp\Core\Http;
 
 use AcmePhp\Core\Http\Base64SafeEncoder;
+use PHPUnit\Framework\TestCase;
 
-class Base64SafeEncoderTest extends \PHPUnit_Framework_TestCase
+class Base64SafeEncoderTest extends TestCase
 {
     /**
      * @dataProvider getTestVectors
