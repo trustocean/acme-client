@@ -1,0 +1,23 @@
+contact_email: acme@trustocean.com
+
+defaults:
+  distinguished_name:
+      country: CN
+      locality: Xian
+      organization_name: XiAn Qiaokr Industries
+  solver: http
+
+certificates:
+  - domain: www.domain.com
+    distinguished_name:
+      organization_name: XiAn Qiaokr Industries
+    subject_alternative_names:
+      - www.domain2.com
+      - www.domain3.com
+    solver:
+      name: http-file
+      adapter: sftp
+      root: /Project/nginx/www.domain.com/public
+      host: server_ip
+      username: root
+      privateKey: /Users/xxx/.ssh/id_rsa
