@@ -1,23 +1,39 @@
-contact_email: acme@trustocean.com
+contact_email: support@staff.digital-sign.cn
 
 defaults:
   distinguished_name:
       country: CN
-      locality: Xian
-      organization_name: XiAn Qiaokr Industries
+      locality: Chongqing
+      organization_name: "Digital Sign® Public Key Infrastructure"
   solver: http
 
 certificates:
-  - domain: www.domain.com
+  - domain: www.digital-sign.com.cn
     distinguished_name:
       organization_name: XiAn Qiaokr Industries
     subject_alternative_names:
-      - www.domain2.com
-      - www.domain3.com
+      - *.digital-sign.com.cn
+      - digital-sign.com.cn
+      - *.digital-sign.cn
+      - digital-sign.cn
+      - api.digital-sign.cn
+      - api.digital-sign.com.cn
     solver:
+      #普通HTTP验证，使用SSH SFTP上传到指定路径
       name: http-file
       adapter: sftp
       root: /Project/nginx/www.domain.com/public
       host: server_ip
       username: root
       privateKey: /Users/xxx/.ssh/id_rsa
+
+      #验证DNS时候用 腾讯云DNSPod的API密钥 https://console.cloud.tencent.com/cam/capi
+      #name: dnspod
+      #secret_id: 
+      #secret_key: 
+
+      #验证DNS时候用 阿里云的AccessKey https://usercenter.console.aliyun.com/#/manage/ak
+      #name: aliyun
+      #access_key_id: 
+      #access_key_secret: 
+
