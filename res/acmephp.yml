@@ -5,12 +5,11 @@ defaults:
       country: CN
       locality: Chongqing
       organization_name: "Digital Sign® Public Key Infrastructure"
+  #可以http或者dns
   solver: http
 
 certificates:
   - domain: www.digital-sign.com.cn
-    distinguished_name:
-      organization_name: XiAn Qiaokr Industries
     subject_alternative_names:
       - *.digital-sign.com.cn
       - digital-sign.com.cn
@@ -37,3 +36,25 @@ certificates:
       #access_key_id: 
       #access_key_secret: 
 
+    #如果使用了CDN，可以自动配置到CDN
+    #install:
+      #阿里云WAF
+      #- action: install_aliyun_waf
+      #  region: eu-west-1
+      #  instanceId: waf-**
+      #  domain: www.digital-sign.com.cn
+      #  accessKeyId: 
+      #  accessKeySecret: 
+
+      #阿里云CDN
+      #- action: install_aliyun_cdn
+      #  domain: www.digital-sign.com.cn
+      #  accessKeyId: 
+      #  accessKeySecret: 
+  
+      #腾讯云CDN
+      #- action: install_tencentcloud_cdn
+      #  host: www.digital-sign.com.cn
+      #  https_type: 2
+      #  secret_id: 
+      #  secret_key: 
