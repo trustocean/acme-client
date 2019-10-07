@@ -15,20 +15,24 @@ use AcmePhp\Core\Challenge\ConfigurableServiceInterface;
 use AcmePhp\Core\Challenge\Dns\Traits\TopLevelDomainTrait;
 use AcmePhp\Core\Challenge\MultipleChallengesSolverInterface;
 use AcmePhp\Core\Protocol\AuthorizationChallenge;
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
+use function GuzzleHttp\json_decode;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\NullLogger;
+use QcloudApi;
 use Webmozart\Assert\Assert;
 
 /**
- * ACME DNS solver with automate configuration of a Gandi.Net.
+ * ACME DNS solver with automate configuration of a DnsPod.cn (TencentCloud NS).
  *
- * @author Alexander Obuhovich <aik.bold@gmail.com>
+ * @author Xiaohui Lam <xiaohui.lam@e.hexdata.cn>
  */
-class GandiSolver implements MultipleChallengesSolverInterface, ConfigurableServiceInterface
+class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableServiceInterface
 {
     use LoggerAwareTrait, TopLevelDomainTrait;
+
     /**
      * @var DnsDataExtractor
      */
@@ -47,7 +51,12 @@ class GandiSolver implements MultipleChallengesSolverInterface, ConfigurableServ
     /**
      * @var string
      */
-    private $apiKey;
+    private $secretId;
+
+    /**
+     * @var string
+     */
+    private $secretKey;
 
     /**
      * @param DnsDataExtractor $extractor
@@ -69,7 +78,8 @@ class GandiSolver implements MultipleChallengesSolverInterface, ConfigurableServ
      */
     public function configure(array $config)
     {
-        $this->apiKey = $config['api_key'];
+        $this->secretId = $config['secret_id'];
+        $this->secretKey = $config['secret_key'];
     }
 
     /**
@@ -95,6 +105,17 @@ class GandiSolver implements MultipleChallengesSolverInterface, ConfigurableServ
     {
         Assert::allIsInstanceOf($authorizationChallenges, AuthorizationChallenge::class);
 
+        $config = [
+            'SecretId' => $this->secretId,
+            'SecretKey' => $this->secretKey,
+            'RequestMethod' => 'GET',
+            'DefaultRegion' => 'gz',
+        ];
+        /**
+         * @var \QcloudApi_Module_Cns
+         */
+        $cns = QcloudApi::load(QcloudApi::MODULE_CNS, $config);
+
         foreach ($authorizationChallenges as $authorizationChallenge) {
             $topLevelDomain = $this->getTopLevelDomain($authorizationChallenge->getDomain());
             $recordName = $this->extractor->getRecordName($authorizationChallenge);
@@ -102,21 +123,46 @@ class GandiSolver implements MultipleChallengesSolverInterface, ConfigurableServ
 
             $subDomain = \str_replace('.'.$topLevelDomain.'.', '', $recordName);
 
-            $this->client->request(
-                'PUT',
-                'https://dns.api.gandi.net/api/v5/domains/'.$topLevelDomain.'/records/'.$subDomain.'/TXT',
-                [
-                    'headers' => [
-                        'X-Api-Key' => $this->apiKey,
-                    ],
-                    'json' => [
-                        'rrset_type' => 'TXT',
-                        'rrset_ttl' => 600,
-                        'rrset_name' => $subDomain,
-                        'rrset_values' => [$recordValue],
-                    ],
-                ]
-            );
+            $recordType = $this->extractor->getRecordType($authorizationChallenge);
+
+            if (strtolower($recordType) == 'cname') {
+                // 因为 DNSPod 免费版套餐 同一名称 cname 不能并存
+                // 所以要删除旧的
+
+                $cns->RecordList([
+                    'domain' => $topLevelDomain,
+                    'subDomain' => $subDomain,
+                    'recordType' => $recordType,
+                ]);
+                $data = json_decode($cns->getLastResponse(), true);
+                if ($data && isset($data['data']) && isset($data['data']['records']) && is_array($data['data']['records']) && count($data['data']['records'])) {
+                    $existedRecord = $data['data']['records'][0];
+                    if (isset($existedRecord['id'])) {
+                        $cns->RecordDelete([
+                            'domain' => $topLevelDomain,
+                            'recordId' => $existedRecord['id'],
+                        ]);
+                    }
+                }
+            }
+            $solve = $cns->RecordCreate([
+                'domain' => $topLevelDomain,
+                'subDomain' => $subDomain,
+                'recordType' => $recordType,
+                'recordLine' => '默认',
+                'value' => $recordValue,
+            ]);
+
+            if (false === $solve) {
+                /**
+                 * @var \QcloudApi_Common_Error
+                 */
+                $err = $cns->getError();
+                throw new Exception($err->getMessage(), $err->getCode());
+            }
+
+            $data = json_decode($cns->getLastResponse(), true);
+            $authorizationChallenge->recordId = $data['data']['record']['id'];
         }
     }
 
@@ -135,21 +181,24 @@ class GandiSolver implements MultipleChallengesSolverInterface, ConfigurableServ
     {
         Assert::allIsInstanceOf($authorizationChallenges, AuthorizationChallenge::class);
 
+        $config = [
+            'SecretId' => $this->secretId,
+            'SecretKey' => $this->secretKey,
+            'RequestMethod' => 'GET',
+            'DefaultRegion' => 'gz',
+        ];
+        /**
+         * @var \QcloudApi_Module_Cns
+         */
+        $cns = QcloudApi::load(QcloudApi::MODULE_CNS, $config);
+
         foreach ($authorizationChallenges as $authorizationChallenge) {
             $topLevelDomain = $this->getTopLevelDomain($authorizationChallenge->getDomain());
-            $recordName = $this->extractor->getRecordName($authorizationChallenge);
 
-            $subDomain = \str_replace('.'.$topLevelDomain.'.', '', $recordName);
-
-            $this->client->request(
-                'DELETE',
-                'https://dns.api.gandi.net/api/v5/domains/'.$topLevelDomain.'/records/'.$subDomain.'/TXT',
-                [
-                    'headers' => [
-                        'X-Api-Key' => $this->apiKey,
-                    ],
-                ]
-            );
+            $cns->RecordDelete([
+                'domain' => $topLevelDomain,
+                'recordId' => $authorizationChallenge->recordId,
+            ]);
         }
     }
 }

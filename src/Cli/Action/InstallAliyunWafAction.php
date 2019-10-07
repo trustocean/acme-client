@@ -28,6 +28,8 @@ class InstallAliyunWafAction extends AbstractAction
     public function handle($config, CertificateResponse $response)
     {
         $issuerChain = [];
+        $issuerChain[] = $response->getCertificate()->getPEM();
+
         $issuerCertificate = $response->getCertificate()->getIssuerCertificate();
         while (null !== $issuerCertificate) {
             $issuerChain[] = $issuerCertificate->getPEM();
@@ -46,7 +48,7 @@ class InstallAliyunWafAction extends AbstractAction
             ->withCert($cert)
             ->withKey($key)
             ->withDomain($config['domain'])
-            ->withHttpsCertName($config['domain'])
+            ->withHttpsCertName($config['domain'].'_'.date('Y_m_d_H_i_s'))
             ->withInstanceId($config['instanceId'])
             ->request();
     }

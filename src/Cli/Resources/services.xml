@@ -122,12 +122,14 @@
             <argument type="service" id="http.raw_client" />
             <tag name="acmephp.action" alias="push_rancher" />
         </service>
-        <service id="acmephp.action.install_aliyun_waf" class="AcmePhp\Cli\Action\InstallAliyunWafAction" public="false">
-            <argument type="service" id="aws.client_factory" />
-            <tag name="acmephp.action" alias="install_aliyun_waf" />
-        </service>
         <service id="acmephp.action.install_aliyun_cdn" class="AcmePhp\Cli\Action\InstallAliyunCdnAction" public="false">
             <tag name="acmephp.action" alias="install_aliyun_cdn" />
+        </service>
+        <service id="acmephp.action.install_aliyun_waf" class="AcmePhp\Cli\Action\InstallAliyunWafAction" public="false">
+            <tag name="acmephp.action" alias="install_aliyun_waf" />
+        </service>
+        <service id="acmephp.action.install_tencentcloud_cdn" class="AcmePhp\Cli\Action\InstallTencentcloudCdnAction" public="false">
+            <tag name="acmephp.action" alias="install_tencentcloud_cdn" />
         </service>
 
         <service id="acmephp.action.locator" class="Symfony\Component\DependencyInjection\ServiceLocator">
@@ -200,6 +202,12 @@
             <argument type="service" id="http.raw_client" />
             <call method="setLogger"><argument type="service" id="cli_logger"/></call>
             <tag name="acmephp.challenge_solver" alias="aliyun" />
+        </service>
+        <service id="acmephp.challenge_solver.dnspod" class="AcmePhp\Core\Challenge\Dns\DnspodSolver" public="false">
+            <argument type="service" id="challenge_extractor.dns" />
+            <argument type="service" id="http.raw_client" />
+            <call method="setLogger"><argument type="service" id="cli_logger"/></call>
+            <tag name="acmephp.challenge_solver" alias="dnspod" />
         </service>
         <service id="acmephp.challenge_solver.locator" class="Symfony\Component\DependencyInjection\ServiceLocator">
             <argument type="collection"/>
