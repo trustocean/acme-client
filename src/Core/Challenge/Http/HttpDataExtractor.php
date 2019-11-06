@@ -31,7 +31,7 @@ class HttpDataExtractor
     {
         return sprintf(
             'http://%s%s',
-            preg_replace('*.', '', $authorizationChallenge->getDomain()),
+            preg_replace('/^\*\./', '', $authorizationChallenge->getDomain()),
             $this->getCheckPath($authorizationChallenge)
         );
     }
