@@ -136,12 +136,13 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
                 ]);
                 $data = json_decode($cns->getLastResponse(), true);
                 if ($data && isset($data['data']) && isset($data['data']['records']) && is_array($data['data']['records']) && count($data['data']['records'])) {
-                    $existedRecord = $data['data']['records'][0];
-                    if (isset($existedRecord['id'])) {
-                        $cns->RecordDelete([
-                            'domain' => $topLevelDomain,
-                            'recordId' => $existedRecord['id'],
-                        ]);
+                    foreach ($data['data']['records'] as $existedRecord) {
+                        if (isset($existedRecord['id'])) {
+                            $cns->RecordDelete([
+                                'domain' => $topLevelDomain,
+                                'recordId' => $existedRecord['id'],
+                            ]);
+                        }
                     }
                 }
             }
