@@ -55,11 +55,17 @@ class DnsValidator implements ValidatorInterface
      */
     public function isValid(AuthorizationChallenge $authorizationChallenge)
     {
-        $recordName = $this->extractor->getRecordName($authorizationChallenge);
+        $recordName = $this->extractor->getRecordFqdn($authorizationChallenge);
         $recordValue = $this->extractor->getRecordValue($authorizationChallenge);
 
         try {
-            return \in_array($recordValue, $this->dnsResolver->getTxtEntries($recordName));
+            if (method_exists($this->extractor, 'getRecordType')) {
+                $type = $this->extractor->getRecordType($authorizationChallenge);
+                $records = $this->dnsResolver->getEnteries($type, $recordName);
+            } else {
+                $records = $this->dnsResolver->getTxtEntries($recordName);
+            }
+            return \in_array($recordValue, $records);
         } catch (AcmeDnsResolutionException $e) {
             return false;
         }

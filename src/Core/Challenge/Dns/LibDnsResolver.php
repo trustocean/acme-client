@@ -12,6 +12,7 @@
 namespace AcmePhp\Core\Challenge\Dns;
 
 use AcmePhp\Core\Exception\AcmeDnsResolutionException;
+use Exception;
 use LibDNS\Decoder\Decoder;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\Encoder;
@@ -97,6 +98,59 @@ class LibDnsResolver implements DnsResolverInterface
             }
             try {
                 $response = $this->request($domain, ResourceTypes::TXT, $ipNameServer[0]);
+            } catch (\Exception $e) {
+                throw new AcmeDnsResolutionException(sprintf('Unable to find domain %s on nameserver %s', $domain, $nameServer));
+            }
+            $entries = [];
+            foreach ($response->getAnswerRecords() as $record) {
+                foreach ($record->getData() as $recordData) {
+                    $entries[] = (string) $recordData;
+                }
+            }
+
+            $identicalEntries[json_encode($entries)][] = $nameServer;
+        }
+
+        $this->logger->info('DNS records fetched', ['mapping' => $identicalEntries]);
+        if (1 !== \count($identicalEntries)) {
+            throw new AcmeDnsResolutionException('Dns not fully propagated');
+        }
+
+        return json_decode(key($identicalEntries));
+    }
+
+    public function getEnteries($type, $domain)
+    {
+        $type_int = null;
+        switch (strtolower($type)) {
+            case 'cname':
+                $type_int = ResourceTypes::CNAME;
+                break;
+
+            case 'a':
+                $type_int = ResourceTypes::A;
+                break;
+
+            case 'txt':
+                $type_int = ResourceTypes::TXT;
+                break;
+
+            default:
+                throw new Exception("Doesn't support type " . $type, 0);
+                break;
+        }
+
+        $domain = rtrim($domain, '.');
+        $nameServers = $this->getNameServers($domain);
+        $this->logger->debug('Fetched TXT records for domain', ['nsDomain' => $domain, 'servers' => $nameServers]);
+        $identicalEntries = [];
+        foreach ($nameServers as $nameServer) {
+            $ipNameServer = gethostbynamel($nameServer);
+            if (empty($ipNameServer)) {
+                throw new AcmeDnsResolutionException(sprintf('Unable to find domain %s on nameserver %s', $domain, $nameServer));
+            }
+            try {
+                $response = $this->request($domain, $type_int, $ipNameServer[0]);
             } catch (\Exception $e) {
                 throw new AcmeDnsResolutionException(sprintf('Unable to find domain %s on nameserver %s', $domain, $nameServer));
             }

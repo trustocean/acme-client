@@ -28,6 +28,16 @@ interface DnsResolverInterface
     public function getTxtEntries($domain);
 
     /**
+     * Retrieves the list of specific type entries for the given domain.
+     *
+     * @param string $type
+     * @param string $domain
+     *
+     * @return array
+     */
+    public function getEnteries($type, $domain);
+
+    /**
      * Return whether or not the Resolver is supported.
      *
      * @return bool

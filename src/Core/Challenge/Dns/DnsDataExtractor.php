@@ -50,6 +50,21 @@ class DnsDataExtractor
     }
 
     /**
+     * Retrieves the fqdn name of the TXT record to register.
+     *
+     * @param AuthorizationChallenge $authorizationChallenge
+     *
+     * @return string
+     */
+    public function getRecordFqdn(AuthorizationChallenge $authorizationChallenge)
+    {
+        if (!$authorizationChallenge->getFqdn()) {
+            return $this->getRecordName($authorizationChallenge);
+        }
+        return $authorizationChallenge->getFqdn();
+    }
+
+    /**
      * Retrieves the value of the TXT record to register.
      *
      * @param AuthorizationChallenge $authorizationChallenge

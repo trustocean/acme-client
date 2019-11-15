@@ -66,6 +66,11 @@ class AuthorizationChallenge
     private $filecontent;
 
     /**
+     * @var string|null
+     */
+    private $fqdn;
+
+    /**
      * @param string $domain
      * @param string $status
      * @param string $type
@@ -75,8 +80,9 @@ class AuthorizationChallenge
      * @param string $path
      * @param string $verifyurl
      * @param string $filecontent
+     * @param string $fqdn
      */
-    public function __construct($domain, $status, $type, $url, $token, $payload, $path = null, $verifyurl = null, $filecontent = null)
+    public function __construct($domain, $status, $type, $url, $token, $payload, $path = null, $verifyurl = null, $filecontent = null, $fqdn = null)
     {
         Assert::stringNotEmpty($domain, 'Challenge::$domain expected a non-empty string. Got: %s');
         Assert::stringNotEmpty($status, 'Challenge::$status expected a non-empty string. Got: %s');
@@ -94,6 +100,7 @@ class AuthorizationChallenge
         $this->path = $path;
         $this->verifyurl = $verifyurl;
         $this->filecontent = $filecontent;
+        $this->fqdn = $fqdn;
     }
 
     /**
@@ -220,5 +227,13 @@ class AuthorizationChallenge
     public function getFilecontent()
     {
         return $this->filecontent;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getFqdn()
+    {
+        return $this->fqdn;
     }
 }

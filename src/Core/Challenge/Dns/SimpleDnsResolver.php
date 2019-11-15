@@ -40,4 +40,35 @@ class SimpleDnsResolver implements DnsResolverInterface
 
         return array_unique($entries);
     }
+
+    public function getEnteries($type, $domain)
+    {
+        $entries = [];
+        $type_int = null;
+        switch (strtolower($type)) {
+            case 'cname':
+                $type_int = DNS_CNAME;
+                break;
+
+            case 'a':
+                $type_int = DNS_A;
+                break;
+
+            case 'txt':
+                $type_int = DNS_TXT;
+                break;
+
+            default:
+                throw new Exception("Doesn't support type ".$type, 0);
+                break;
+        }
+
+        foreach (dns_get_record($domain, $type_int) as $record) {
+            $entries = array_merge($entries, $record['entries']);
+        }
+
+        sort($entries);
+
+        return array_unique($entries);
+    }
 }

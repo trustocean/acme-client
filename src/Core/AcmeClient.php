@@ -394,7 +394,8 @@ class AcmeClient implements AcmeClientV2Interface
             isset($response['filecontent']) ? $response['filecontent'] : ($response['token'].'.'.$base64encoder->encode($this->getHttpClient()->getJWKThumbprint())),
             isset($response['path']) ? $response['path'] : null,
             isset($response['verifyurl']) ? $response['verifyurl'] : null,
-            isset($response['filecontent']) ? $response['filecontent'] : null
+            isset($response['filecontent']) ? $response['filecontent'] : null,
+            isset($response['fqdn']) ? $response['fqdn'] : null
         );
     }
 }
