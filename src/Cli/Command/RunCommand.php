@@ -96,7 +96,7 @@ EOF
                     $certificate
                 );
             } else {
-                $order = $this->challengeDomains($domainConfig, $keyOption);
+                $order = $this->challengeDomains($domainConfig, $keyOption, $config);
                 $this->requestCertificate($order, $domainConfig, $keyOption);
 
                 $certificate = $this->getRepository()->loadDomainCertificate($domain);
@@ -240,7 +240,7 @@ EOF
         return $response;
     }
 
-    private function challengeDomains(array $domainConfig, KeyOption $keyOption)
+    private function challengeDomains(array $domainConfig, KeyOption $keyOption, array $config)
     {
         $solverConfig = $domainConfig['solver'];
         $domain = $domainConfig['domain'];
@@ -327,6 +327,8 @@ EOF
             }
         }
 
+        $config_timeout = (isset($config['timeout']) ? $config['timeout'] : 180);
+
         $startTestTime = time();
         foreach ($authorizationChallengesToSolve as $domain => $authorizationChallenge) {
             if ($authorizationChallenge->isValid()) {
@@ -334,12 +336,12 @@ EOF
             }
 
             $this->output->writeln(sprintf('<info>Testing the challenge for domain %s...</info>', $domain));
-            if (time() - $startTestTime > 180 || !$validator->isValid($authorizationChallenge)) {
+            if (time() - $startTestTime > $config_timeout || !$validator->isValid($authorizationChallenge)) {
                 $this->output->writeln(sprintf('<info>Can not self validate challenge for domain %s. Maybe letsencrypt will be able to do it...</info>', $domain));
             }
 
             $this->output->writeln(sprintf('<info>Requesting authorization check for domain %s...</info>', $domain));
-            $client->challengeAuthorization($authorizationChallenge);
+            $client->challengeAuthorization($authorizationChallenge, $config_timeout);
         }
 
         if ($solver instanceof MultipleChallengesSolverInterface) {
