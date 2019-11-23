@@ -3,7 +3,7 @@
     "description": "ACME client written in PHP",
     "type": "project",
     "license": "MIT",
-    "homepage": "https://github.com/trustocean/acme-client",
+    "homepage": "https://github.com/digitalsign/acme-client",
     "keywords": [
         "acme",
         "acmephp",
