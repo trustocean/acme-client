@@ -72,6 +72,16 @@ class DomainConfiguration implements ConfigurationInterface
                         ->thenInvalid('The keyType %s is not valid. Supported types are: RSA, EC')
                     ->end()
                 ->end()
+                ->scalarNode('timeout')
+                    ->info('Timtout to challenge.')
+                    ->defaultValue('180')
+                    ->beforeNormalization()
+                    ->ifTrue(function ($item) {
+                        return !is_int($item) || $item < 1 || $item > 3600;
+                    })
+                    ->thenInvalid('The timeout %s is not valid. Supported range is 1~3600')
+                    ->end()
+                ->end()
             ->end()
             ->append($this->createDefaultsSection())
             ->append($this->createCertificatesSection());
