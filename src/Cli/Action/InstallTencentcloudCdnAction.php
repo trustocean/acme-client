@@ -19,6 +19,7 @@ use function GuzzleHttp\json_decode;
  * Action to install certificate in an Aliyun Waf.
  *
  * @author Xiaohui Lam <xiaohui.lam@aliyun.com>
+ * @link https://cloud.tencent.com/document/api/228/12965
  */
 class InstallTencentcloudCdnAction extends AbstractAction
 {
