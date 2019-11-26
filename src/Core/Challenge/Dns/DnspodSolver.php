@@ -14,23 +14,23 @@ namespace AcmePhp\Core\Challenge\Dns;
 use AcmePhp\Core\Challenge\ConfigurableServiceInterface;
 use AcmePhp\Core\Challenge\Dns\Traits\TopLevelDomainTrait;
 use AcmePhp\Core\Challenge\MultipleChallengesSolverInterface;
+use AcmePhp\Core\Exception\AcmeCoreClientException;
 use AcmePhp\Core\Protocol\AuthorizationChallenge;
-use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
-use GuzzleHttp\Exception\InvalidArgumentException;
+use GuzzleHttp\RequestOptions;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\NullLogger;
-use QcloudApi;
-use QcloudApi_Common_Request;
 use Webmozart\Assert\Assert;
 
 use function GuzzleHttp\json_decode;
+use function GuzzleHttp\json_encode;
 
 /**
  * ACME DNS solver with automate configuration of a DnsPod.cn (TencentCloud NS).
  *
  * @author Xiaohui Lam <xiaohui.lam@e.hexdata.cn>
+ * @link https://www.dnspod.cn/docs/records.html#record-list
  */
 class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableServiceInterface
 {
@@ -52,14 +52,21 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
     private $cacheZones;
 
     /**
-     * @var string
+     * @var int
      */
-    private $secretId;
+    private $id;
 
     /**
      * @var string
      */
-    private $secretKey;
+    private $token;
+
+    /**
+     * 批量ID
+     *
+     * @var int
+     */
+    private $job_id;
 
     /**
      * @param DnsDataExtractor $extractor
@@ -81,8 +88,8 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
      */
     public function configure(array $config)
     {
-        $this->secretId = $config['secret_id'];
-        $this->secretKey = $config['secret_key'];
+        $this->id = $config['id'];
+        $this->token = $config['token'];
     }
 
     /**
@@ -108,87 +115,97 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
     {
         Assert::allIsInstanceOf($authorizationChallenges, AuthorizationChallenge::class);
 
-        $config = [
-            'SecretId' => $this->secretId,
-            'SecretKey' => $this->secretKey,
-            'RequestMethod' => 'GET',
-            'DefaultRegion' => 'gz',
-        ];
-        /**
-         * @var \QcloudApi_Module_Cns $cns
-         */
-        $cns = QcloudApi::load(QcloudApi::MODULE_CNS, $config);
+        $domains = [];
+        $records_all = [];
+
+        $http = new Client();
+
+        $domainListResponse = $http->post('https://dnsapi.cn/Domain.List', [
+            RequestOptions::FORM_PARAMS => [
+                'format' => 'json',
+                'login_token' => implode(',', [$this->id, $this->token]),
+                'length' => 2000,
+            ],
+        ]);
+        if ($domainListResponse->getStatusCode() == 200) {
+            $domainList = json_decode($domainListResponse->getBody()->__toString(), true);
+            foreach ($domainList['domains'] as $domain) {
+                $domains[$domain['name']] = $domain['id'];
+            }
+        }
 
         foreach ($authorizationChallenges as $authorizationChallenge) {
-            $topLevelDomain = $this->getTopLevelDomain($authorizationChallenge->getDomain());
-            $recordName = $this->extractor->getRecordName($authorizationChallenge);
-            $recordValue = $this->extractor->getRecordValue($authorizationChallenge);
-
-            $subDomain = \str_replace('.'.$topLevelDomain.'.', '', $recordName);
-
+            $authorizationChallenge->getTopLevelDomain();
+            $authorizationChallenge->getSubDomain();
             $recordType = 'txt';
             if (method_exists($this->extractor, 'getRecordType')) {
                 $recordType = $this->extractor->getRecordType($authorizationChallenge);
             }
+            $listResponse = $http->post('https://dnsapi.cn/Record.List', [
+                RequestOptions::FORM_PARAMS => [
+                    'format' => 'json',
+                    'login_token' => implode(',', [$this->id, $this->token]),
+                    'domain' => $authorizationChallenge->getTopLevelDomain(),
+                    'sub_domain' => preg_replace('/\.' . str_replace('.', '\.', $authorizationChallenge->getTopLevelDomain()) . '$/', '', $this->extractor->getRecordFqdn($authorizationChallenge)),
+                    'record_type' => $recordType,
+                ],
+            ]);
+            $list = json_decode($listResponse->getBody()->__toString(), true);
+            if ($listResponse->getStatusCode() == 200 && $list['status']['code'] == 1) {
+                $domain = $list['domain'];
+                $domains[$authorizationChallenge->getTopLevelDomain()] = $domain['id'];
+                if ('cname' === strtolower($recordType)) {
+                    if (isset($list['records']) && is_array($list['records'])) {
+                        $records = $list['records'];
+                        foreach ($records as $record) {
+                            $this->logger->debug('Fetched Conflict records for domain, deleting', [
+                                'domain' => $authorizationChallenge->getTopLevelDomain(),
+                                'record_type' => $recordType,
+                                'record_id' => $record['id'],
+                            ]);
 
-            if ('cname' === strtolower($recordType)) {
-                // Because DNSPod can't create conflicting cname records
-                // So we'd delete existing records first
-                clear:
-
-                $cns->RecordList([
-                    'domain' => $topLevelDomain,
-                    'subDomain' => $subDomain,
-                    'recordType' => $recordType,
-                ]);
-                try {
-                    $data = json_decode($cns->getLastResponse(), true);
-                } catch (InvalidArgumentException $e) {
-                    $err = $cns->getError();
-                    if ($err) {
-                        if ($err->getCode() == 3000) {
-                            throw new \Exception('DNSPod Api Exception:' . QcloudApi_Common_Request::getRawResponse(), $err->getCode());
-                        }
-                        print_r($err->getExt());
-                        throw new \Exception($err->getMessage(), $err->getCode());
-                    } else {
-                        echo $cns->getLastResponse();
-                    }
-                    throw $e;
-                }
-                if ($data && isset($data['data']) && isset($data['data']['records']) && \is_array($data['data']['records']) && \count($data['data']['records'])) {
-                    foreach ($data['data']['records'] as $existedRecord) {
-                        if (isset($existedRecord['id'])) {
-                            $cns->RecordDelete([
-                                'domain' => $topLevelDomain,
-                                'recordId' => $existedRecord['id'],
+                            $http->post('https://dnsapi.cn/Record.Remove', [
+                                RequestOptions::FORM_PARAMS => [
+                                    'format' => 'json',
+                                    'login_token' => implode(',', [$this->id, $this->token]),
+                                    'domain' => $authorizationChallenge->getTopLevelDomain(),
+                                    'record_id' => $record['id'],
+                                ],
                             ]);
                         }
                     }
                 }
             }
-            $solve = $cns->RecordCreate([
-                'domain' => $topLevelDomain,
-                'subDomain' => $subDomain,
-                'recordType' => $recordType,
-                'recordLine' => '默认',
-                'value' => $recordValue,
-            ]);
 
-            if (false === $solve) {
-                /**
-                 * @var \QcloudApi_Common_Error
-                 */
-                $err = $cns->getError();
-                if (strpos($err->getMessage(), '子域名负载均衡数量超出限制') !== false) {
-                    goto clear;
-                }
-                throw new Exception($err->getMessage(), $err->getCode());
-            }
-
-            $data = json_decode($cns->getLastResponse(), true);
-            $authorizationChallenge->recordId = $data['data']['record']['id'];
+            $arr = [
+                'sub_domain' => preg_replace('/\.' . str_replace('.', '\.', $authorizationChallenge->getTopLevelDomain()) . '$/', '', $this->extractor->getRecordFqdn($authorizationChallenge)),
+                'record_type' => $recordType,
+                'record_line' => '默认',
+                'value' => $this->extractor->getRecordValue($authorizationChallenge),
+                'ttl' => 600,
+            ];
+            $records_all[md5(http_build_query($arr))] = $arr;
         }
+
+        sort($records_all);
+        sort($domains);
+
+        $this->logger->debug('Batch creating for domains', $domains);
+        $this->logger->debug('Batch creating records', $records_all);
+        $batchrResponse = $http->post('https://dnsapi.cn/Batch.Record.Create', [
+            RequestOptions::FORM_PARAMS => [
+                'format' => 'json',
+                'login_token' => implode(',', [$this->id, $this->token]),
+                'domain_id' => implode(',', $domains),
+                'records' => json_encode($records_all),
+            ],
+        ]);
+
+        $batch = json_decode($batchrResponse->getBody()->__toString(), true);
+        if ($batch['status']['code'] != 1) {
+            throw new AcmeCoreClientException('Resolving domain fail!', new \Exception($batch['status']['message'], (int) $batch['status']['code']));
+        }
+        $this->job_id = $batch['job_id']; // log job id, after cert issued, it should be using to cleanup
     }
 
     /**
@@ -206,24 +223,43 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
     {
         Assert::allIsInstanceOf($authorizationChallenges, AuthorizationChallenge::class);
 
-        $config = [
-            'SecretId' => $this->secretId,
-            'SecretKey' => $this->secretKey,
-            'RequestMethod' => 'GET',
-            'DefaultRegion' => 'gz',
-        ];
-        /**
-         * @var \QcloudApi_Module_Cns
-         */
-        $cns = QcloudApi::load(QcloudApi::MODULE_CNS, $config);
+        cleanup:
+        $http = new Client();
+        $batchrResponse = $http->post('https://dnsapi.cn/Batch.Detail', [
+            RequestOptions::FORM_PARAMS => [
+                'format' => 'json',
+                'login_token' => implode(',', [$this->id, $this->token]),
+                'job_id' => $this->job_id,
+            ],
+        ]);
+        $batch = json_decode($batchrResponse->getBody()->__toString(), true);
+        foreach ($batch as $tld) {
+            if ($tld['status'] == 'running' || $tld['status'] == 'waiting') {
+                $this->logger->debug('Batch task status ' . $tld['status'], $tld);
+                sleep(5);
+                goto cleanup;
+            }
 
-        foreach ($authorizationChallenges as $authorizationChallenge) {
-            $topLevelDomain = $this->getTopLevelDomain($authorizationChallenge->getDomain());
+            if ($tld['status'] == 'error') {
+                $this->logger->debug('Batch task status ' . $tld['status'], $tld);
+                continue;
+                // @TODO:
+            }
 
-            $cns->RecordDelete([
-                'domain' => $topLevelDomain,
-                'recordId' => $authorizationChallenge->recordId,
-            ]);
+            if ($tld['status'] == 'ok') {
+                $records = $tld['records'];
+
+                foreach ($records as $record) {
+                    $http->post('https://dnsapi.cn/Record.Remove', [
+                        RequestOptions::FORM_PARAMS => [
+                            'format' => 'json',
+                            'login_token' => implode(',', [$this->id, $this->token]),
+                            'domain_id' => $tld['id'],
+                            'record_id' => $record['id'],
+                        ],
+                    ]);
+                }
+            }
         }
     }
 }

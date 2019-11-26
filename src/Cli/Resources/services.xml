@@ -203,7 +203,13 @@
             <call method="setLogger"><argument type="service" id="cli_logger"/></call>
             <tag name="acmephp.challenge_solver" alias="aliyun" />
         </service>
-        <service id="acmephp.challenge_solver.dnspod" class="AcmePhp\Core\Challenge\Dns\DnspodSolver" public="false">
+        <service id="acmephp.challenge_solver.tencentcloud" class="AcmePhp\Core\Challenge\Dns\TencentCloudSolver" public="false">
+            <argument type="service" id="challenge_extractor.dns" />
+            <argument type="service" id="http.raw_client" />
+            <call method="setLogger"><argument type="service" id="cli_logger"/></call>
+            <tag name="acmephp.challenge_solver" alias="tencentcloud" />
+        </service>
+        <service id="acmephp.challenge_solver.dnspod" class="AcmePhp\Core\Challenge\Dns\DNSPodSolver" public="false">
             <argument type="service" id="challenge_extractor.dns" />
             <argument type="service" id="http.raw_client" />
             <call method="setLogger"><argument type="service" id="cli_logger"/></call>
