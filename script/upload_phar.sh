@@ -1,4 +1,4 @@
 curl -X DELETE $(curl https://api.github.com/repos/digitalsign/acme-client/releases/18962377/assets -H "Authorization: token $GITHUB_TOKEN" -s | grep '"url"' | grep "assets" | cut -d'"' -f4) -H "Authorization: token $GITHUB_TOKEN" -s || echo failed
 curl -H "Authorization: token $GITHUB_TOKEN" -H "Content-Type: application/php-archive" -T 'build/acmephp.phar' 'https://uploads.github.com/repos/digitalsign/acme-client/releases/18962377/assets?name=acmephp.phar' -s
 fs=$(ls -l build/acmephp.phar | awk '{print $5}')
-curl -F "size=$fs" -F 'file=@build/acmephp.phar' 'https://upload.media.aliyun.com/api/proxy/upload?Authorization=$WANTU_TOKEN' -s
+curl -F "size=$fs" -F 'file=@build/acmephp.phar' 'https://upload.media.aliyun.com/api/proxy/upload?UserAgent=ALIMEDIASDK_WORKSTATION&Authorization=$WANTU_TOKEN' -s
