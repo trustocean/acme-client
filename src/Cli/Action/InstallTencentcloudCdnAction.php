@@ -43,8 +43,8 @@ class InstallTencentcloudCdnAction extends AbstractAction
         $data = [
             'host' => $config['host'],
             'httpsType' => $config['https_type'],
-            'cert' => $cert,
-            'privateKey' => $key,
+            'cert' => base64_encode($cert),
+            'privateKey' => base64_encode($key),
         ];
 
         $response = $this->_createRequest($config['secret_id'], $config['secret_key'], $data, true);
@@ -62,7 +62,7 @@ class InstallTencentcloudCdnAction extends AbstractAction
 
         $commonParams = [
             'Nonce' => rand(),
-            'Timestamp' => time(NULL),
+            'Timestamp' => time(),
             'Action' => 'SetHttpsInfo',
             'SecretId' => $secretId,
         ];
