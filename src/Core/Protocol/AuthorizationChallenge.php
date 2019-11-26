@@ -159,7 +159,7 @@ class AuthorizationChallenge
      */
     public function getTopLevelDomain()
     {
-        $manager = new Manager(new Cache(), new CurlHttpClient());
+        $manager = new Manager(new Cache(''), new CurlHttpClient());
         $rules = $manager->getRules();
 
         $domain = $rules->resolve($this->getDomain());
@@ -173,7 +173,7 @@ class AuthorizationChallenge
      */
     public function getSubDomain()
     {
-        $manager = new Manager(new Cache(), new CurlHttpClient());
+        $manager = new Manager(new Cache(''), new CurlHttpClient());
         $rules = $manager->getRules();
 
         $domain = $rules->resolve($this->getDomain());
