@@ -233,7 +233,8 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
             ],
         ]);
         $batch = json_decode($batchrResponse->getBody()->__toString(), true);
-        foreach ($batch as $tld) {
+
+        foreach ($batch['detail'] as $tld) {
             if ($tld['status'] == 'running' || $tld['status'] == 'waiting') {
                 $this->logger->debug('Batch task status ' . $tld['status'], $tld);
                 sleep(5);
