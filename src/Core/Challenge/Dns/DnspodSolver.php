@@ -135,8 +135,6 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
         }
 
         foreach ($authorizationChallenges as $authorizationChallenge) {
-            $authorizationChallenge->getTopLevelDomain();
-            $authorizationChallenge->getSubDomain();
             $recordType = 'txt';
             if (method_exists($this->extractor, 'getRecordType')) {
                 $recordType = $this->extractor->getRecordType($authorizationChallenge);
@@ -145,21 +143,21 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
                 RequestOptions::FORM_PARAMS => [
                     'format' => 'json',
                     'login_token' => implode(',', [$this->id, $this->token]),
-                    'domain' => $authorizationChallenge->getTopLevelDomain(),
-                    'sub_domain' => preg_replace('/\.' . str_replace('.', '\.', $authorizationChallenge->getTopLevelDomain()) . '$/', '', $this->extractor->getRecordFqdn($authorizationChallenge)),
+                    'domain' => $this->getTopLevelDomain($authorizationChallenge->getDomain()),
+                    'sub_domain' => preg_replace('/\.' . str_replace('.', '\.', $this->getTopLevelDomain($authorizationChallenge->getDomain())) . '$/', '', $this->extractor->getRecordFqdn($authorizationChallenge)),
                     'record_type' => $recordType,
                 ],
             ]);
             $list = json_decode($listResponse->getBody()->__toString(), true);
             if ($listResponse->getStatusCode() == 200 && $list['status']['code'] == 1) {
                 $domain = $list['domain'];
-                $domains[$authorizationChallenge->getTopLevelDomain()] = $domain['id'];
+                $domains[$this->getTopLevelDomain($authorizationChallenge->getDomain())] = $domain['id'];
                 if ('cname' === strtolower($recordType)) {
                     if (isset($list['records']) && is_array($list['records'])) {
                         $records = $list['records'];
                         foreach ($records as $record) {
                             $this->logger->debug('Fetched Conflict records for domain, deleting', [
-                                'domain' => $authorizationChallenge->getTopLevelDomain(),
+                                'domain' => $this->getTopLevelDomain($authorizationChallenge->getDomain()),
                                 'record_type' => $recordType,
                                 'record_id' => $record['id'],
                             ]);
@@ -168,7 +166,7 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
                                 RequestOptions::FORM_PARAMS => [
                                     'format' => 'json',
                                     'login_token' => implode(',', [$this->id, $this->token]),
-                                    'domain' => $authorizationChallenge->getTopLevelDomain(),
+                                    'domain' => $this->getTopLevelDomain($authorizationChallenge->getDomain()),
                                     'record_id' => $record['id'],
                                 ],
                             ]);
@@ -178,7 +176,7 @@ class DnspodSolver implements MultipleChallengesSolverInterface, ConfigurableSer
             }
 
             $arr = [
-                'sub_domain' => preg_replace('/\.' . str_replace('.', '\.', $authorizationChallenge->getTopLevelDomain()) . '$/', '', $this->extractor->getRecordFqdn($authorizationChallenge)),
+                'sub_domain' => preg_replace('/\.' . str_replace('.', '\.', $this->getTopLevelDomain($authorizationChallenge->getDomain())) . '$/', '', $this->extractor->getRecordFqdn($authorizationChallenge)),
                 'record_type' => $recordType,
                 'record_line' => '默认',
                 'value' => $this->extractor->getRecordValue($authorizationChallenge),

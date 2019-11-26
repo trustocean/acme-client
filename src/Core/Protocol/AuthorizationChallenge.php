@@ -153,34 +153,6 @@ class AuthorizationChallenge
     }
 
     /**
-     * Get registerable(root、tld) domain
-     *
-     * @return string
-     */
-    public function getTopLevelDomain()
-    {
-        $manager = new Manager(new Cache(''), new CurlHttpClient());
-        $rules = $manager->getRules();
-
-        $domain = $rules->resolve($this->getDomain());
-        return $domain->getRegistrableDomain();
-    }
-
-    /**
-     * Get registerable(root、tld) domain
-     *
-     * @return string
-     */
-    public function getSubDomain()
-    {
-        $manager = new Manager(new Cache(''), new CurlHttpClient());
-        $rules = $manager->getRules();
-
-        $domain = $rules->resolve($this->getDomain());
-        return $domain->getSubDomain();
-    }
-
-    /**
      * @return string
      */
     public function getStatus()

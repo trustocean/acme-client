@@ -12,6 +12,7 @@ matrix:
 
 install:
   - composer global require bamarni/composer-bin-plugin
+  - composer config platform.php 5.6.3
   - COMPOSER_MEMORY_LIMIT=-1 travis_retry composer update --no-dev --prefer-dist --no-interaction --no-suggest
   - composer global require humbug/box
   - mv box.json.dist box.json
