@@ -39,7 +39,6 @@
         "ext-mbstring": "*",
         "ext-openssl": "*",
         "lib-openssl": ">=0.9.8",
-        "aws/aws-sdk-php": "^3.38",
         "daverandom/libdns": ">=1.0",
         "guzzlehttp/guzzle": "^6.4",
         "guzzlehttp/psr7": "^1.0",
@@ -68,7 +67,8 @@
         "digitalsign/jwt-core": "*"
     },
     "suggest": {
-        "daverandom/libdns": "^2.0"
+        "daverandom/libdns": "^2.0",
+        "aws/aws-sdk-php": "^3.38"
     },
     "require-dev": {
         "phpspec/prophecy": "^1.8",
