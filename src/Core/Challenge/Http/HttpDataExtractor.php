@@ -31,7 +31,7 @@ class HttpDataExtractor
     {
         return sprintf(
             'http://%s%s',
-            $authorizationChallenge->getDomain(),
+            preg_replace('/^\*\./', '', $authorizationChallenge->getDomain()),
             $this->getCheckPath($authorizationChallenge)
         );
     }
@@ -46,7 +46,7 @@ class HttpDataExtractor
     public function getCheckPath(AuthorizationChallenge $authorizationChallenge)
     {
         return sprintf(
-            '/.well-known/acme-challenge/%s',
+            $authorizationChallenge->getPath() ? ($authorizationChallenge->getPath() . '%s') : '/.well-known/acme-challenge/%s',
             $authorizationChallenge->getToken()
         );
     }

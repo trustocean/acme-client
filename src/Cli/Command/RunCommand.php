@@ -80,9 +80,9 @@ EOF
         $this->register($config['contact_email'], $keyOption);
         foreach ($config['certificates'] as $domainConfig) {
             $domain = $domainConfig['domain'];
+            $repository = $this->getRepository();
 
             if ($this->isUpToDate($domain, $domainConfig, (int) $input->getOption('delay'))) {
-                $repository = $this->getRepository();
                 $certificate = $this->getRepository()->loadDomainCertificate($domain);
                 /** @var ParsedCertificate $parsedCertificate */
                 $parsedCertificate = $this->getContainer()->get('ssl.certificate_parser')->parse($certificate);
@@ -96,12 +96,23 @@ EOF
                     $certificate
                 );
             } else {
-                $order = $this->challengeDomains($domainConfig);
-                $response = $this->requestCertificate($order, $domainConfig, $keyOption);
+                $order = $this->challengeDomains($domainConfig, $keyOption, $config);
+                $this->requestCertificate($order, $domainConfig, $keyOption);
+
+                $certificate = $this->getRepository()->loadDomainCertificate($domain);
+                $response = new CertificateResponse(
+                    new CertificateRequest(
+                        $repository->loadDomainDistinguishedName($domain),
+                        $repository->loadDomainKeyPair($domain)
+                    ),
+                    $certificate
+                );
             }
 
-            $this->installCertificate($response, $domainConfig['install']);
+            $this->installCertificate($domain, $response, $domainConfig['install']);
         }
+
+        return 0;
     }
 
     private function register($email, KeyOption $keyOption)
@@ -134,12 +145,12 @@ EOF
         }
     }
 
-    private function installCertificate(CertificateResponse $response, array $actions)
+    private function installCertificate($domain, CertificateResponse $response, array $actions)
     {
         $this->output->writeln(
             sprintf(
                 '<comment>Installing certificate for domain %s...</comment>',
-                $response->getCertificateRequest()->getDistinguishedName()->getCommonName()
+                $domain
             )
         );
 
@@ -198,37 +209,40 @@ EOF
 
         $repository = $this->getRepository();
         $client = $this->getClient();
-        $distinguishedName = new DistinguishedName(
-            $domainConfig['domain'],
-            $domainConfig['distinguished_name']['country'],
-            $domainConfig['distinguished_name']['state'],
-            $domainConfig['distinguished_name']['locality'],
-            $domainConfig['distinguished_name']['organization_name'],
-            $domainConfig['distinguished_name']['organization_unit_name'],
-            $domainConfig['distinguished_name']['email_address'],
-            $domainConfig['subject_alternative_names']
-        );
+        $csr = null;
+        if (!$client->isCsrEager()) {
+            $distinguishedName = new DistinguishedName(
+                $domainConfig['domain'],
+                $domainConfig['distinguished_name']['country'],
+                $domainConfig['distinguished_name']['state'],
+                $domainConfig['distinguished_name']['locality'],
+                $domainConfig['distinguished_name']['organization_name'],
+                $domainConfig['distinguished_name']['organization_unit_name'],
+                $domainConfig['distinguished_name']['email_address'],
+                $domainConfig['subject_alternative_names']
+            );
 
-        if ($repository->hasDomainKeyPair($domain)) {
-            $domainKeyPair = $repository->loadDomainKeyPair($domain);
-        } else {
-            $domainKeyPair = $this->getContainer()->get('ssl.key_pair_generator')->generateKeyPair($keyOption);
-            $repository->storeDomainKeyPair($domain, $domainKeyPair);
+            if ($repository->hasDomainKeyPair($domain)) {
+                $domainKeyPair = $repository->loadDomainKeyPair($domain);
+            } else {
+                $domainKeyPair = $this->getContainer()->get('ssl.key_pair_generator')->generateKeyPair($keyOption);
+                $repository->storeDomainKeyPair($domain, $domainKeyPair);
+            }
+
+            $repository->storeDomainDistinguishedName($domain, $distinguishedName);
+
+            $csr = new CertificateRequest($distinguishedName, $domainKeyPair);
         }
-
-        $repository->storeDomainDistinguishedName($domain, $distinguishedName);
-
-        $csr = new CertificateRequest($distinguishedName, $domainKeyPair);
         $response = $client->finalizeOrder($order, $csr);
 
         $this->output->writeln('<info>Certificate requested successfully!</info>');
 
-        $repository->storeCertificateResponse($response);
+        $repository->storeCertificateResponse($domain, $response);
 
         return $response;
     }
 
-    private function challengeDomains(array $domainConfig)
+    private function challengeDomains(array $domainConfig, KeyOption $keyOption, array $config)
     {
         $solverConfig = $domainConfig['solver'];
         $domain = $domainConfig['domain'];
@@ -246,8 +260,43 @@ EOF
         $client = $this->getClient();
         $domains = array_unique(array_merge([$domain], $domainConfig['subject_alternative_names']));
 
-        $this->output->writeln('<comment>Requesting certificate order...</comment>');
-        $order = $client->requestOrder($domains);
+        $csr = null;
+        $challenge_type = null;
+        if ($client->isCsrEager()) {
+            $challenge_type = 'http-01';
+            if (substr(get_class($solver), 0, 26) == 'AcmePhp\Core\Challenge\Dns') {
+                $challenge_type = 'dns-01';
+            }
+
+            $domain = $domainConfig['domain'];
+            $this->output->writeln(sprintf('<comment>Requesting certificate for domain %s...</comment>', $domain));
+
+            $repository = $this->getRepository();
+            $distinguishedName = new DistinguishedName(
+                $domainConfig['domain'],
+                $domainConfig['distinguished_name']['country'],
+                $domainConfig['distinguished_name']['state'],
+                $domainConfig['distinguished_name']['locality'],
+                $domainConfig['distinguished_name']['organization_name'],
+                $domainConfig['distinguished_name']['organization_unit_name'],
+                $domainConfig['distinguished_name']['email_address'],
+                $domainConfig['subject_alternative_names']
+            );
+
+            if ($repository->hasDomainKeyPair($domain)) {
+                $domainKeyPair = $repository->loadDomainKeyPair($domain);
+            } else {
+                $domainKeyPair = $this->getContainer()->get('ssl.key_pair_generator')->generateKeyPair($keyOption);
+                $repository->storeDomainKeyPair($domain, $domainKeyPair);
+            }
+
+            $repository->storeDomainDistinguishedName($domain, $distinguishedName);
+
+            $csr = new CertificateRequest($distinguishedName, $domainKeyPair);
+
+            $this->output->writeln('<comment>Requesting certificate order...</comment>');
+        }
+        $order = $client->requestOrder($domains, $csr, $challenge_type);
 
         $authorizationChallengesToSolve = [];
         foreach ($order->getAuthorizationsChallenges() as $domain => $authorizationChallenges) {
@@ -280,19 +329,23 @@ EOF
             }
         }
 
+        $config_timeout = (isset($config['timeout']) ? $config['timeout'] : 180);
+
         $startTestTime = time();
         foreach ($authorizationChallengesToSolve as $domain => $authorizationChallenge) {
             if ($authorizationChallenge->isValid()) {
                 continue;
             }
 
-            $this->output->writeln(sprintf('<info>Testing the challenge for domain %s...</info>', $domain));
-            if (time() - $startTestTime > 180 || !$validator->isValid($authorizationChallenge)) {
-                $this->output->writeln(sprintf('<info>Can not self validate challenge for domain %s. Maybe letsencrypt will be able to do it...</info>', $domain));
+            if (!isset($config['check']) || $config['check']) {
+                $this->output->writeln(sprintf('<info>Testing the challenge for domain %s...</info>', $domain));
+                if (time() - $startTestTime > $config_timeout || !$validator->isValid($authorizationChallenge)) {
+                    $this->output->writeln(sprintf('<info>Can not self validate challenge for domain %s. Maybe letsencrypt will be able to do it...</info>', $domain));
+                }
             }
 
             $this->output->writeln(sprintf('<info>Requesting authorization check for domain %s...</info>', $domain));
-            $client->challengeAuthorization($authorizationChallenge);
+            $client->challengeAuthorization($authorizationChallenge, $config_timeout);
         }
 
         if ($solver instanceof MultipleChallengesSolverInterface) {

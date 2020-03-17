@@ -43,7 +43,25 @@ class DnsDataExtractor
      */
     public function getRecordName(AuthorizationChallenge $authorizationChallenge)
     {
+        if (trim($authorizationChallenge->getFilecontent())) {
+            return $authorizationChallenge->getToken();
+        }
         return sprintf('_acme-challenge.%s.', $authorizationChallenge->getDomain());
+    }
+
+    /**
+     * Retrieves the fqdn name of the TXT record to register.
+     *
+     * @param AuthorizationChallenge $authorizationChallenge
+     *
+     * @return string
+     */
+    public function getRecordFqdn(AuthorizationChallenge $authorizationChallenge)
+    {
+        if (!$authorizationChallenge->getFqdn()) {
+            return $this->getRecordName($authorizationChallenge);
+        }
+        return $authorizationChallenge->getFqdn();
     }
 
     /**
@@ -55,6 +73,24 @@ class DnsDataExtractor
      */
     public function getRecordValue(AuthorizationChallenge $authorizationChallenge)
     {
+        if (trim($authorizationChallenge->getFilecontent())) {
+            return $authorizationChallenge->getFilecontent();
+        }
         return $this->encoder->encode(hash('sha256', $authorizationChallenge->getPayload(), true));
+    }
+
+    /**
+     * Retrieves the value of the NS Type
+     *
+     * @param AuthorizationChallenge $authorizationChallenge
+     *
+     * @return string
+     */
+    public function getRecordType(AuthorizationChallenge $authorizationChallenge)
+    {
+        if ($authorizationChallenge->getPath()) {
+            return $authorizationChallenge->getPath();
+        }
+        return 'TXT';
     }
 }

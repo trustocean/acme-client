@@ -6,13 +6,14 @@
     beStrictAboutTestsThatDoNotTestAnything = "true"
     beStrictAboutOutputDuringTests          = "true"
     colors                                  = "true"
+    convertNoticesToExceptions              = "false"
     verbose                                 = "true"
     bootstrap                               = "vendor/autoload.php"
 >
 
     <php>
         <env name="SYMFONY_ENV" value="test"/>
-        <env name="SYMFONY_DEPRECATIONS_HELPER" value="weak"/>
+        <env name="SYMFONY_DEPRECATIONS_HELPER" value="max[direct]=0"/>
     </php>
 
     <testsuites>

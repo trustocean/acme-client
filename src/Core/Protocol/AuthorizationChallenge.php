@@ -11,6 +11,9 @@
 
 namespace AcmePhp\Core\Protocol;
 
+use Pdp\Cache;
+use Pdp\Manager;
+use Pdp\CurlHttpClient;
 use Webmozart\Assert\Assert;
 
 /**
@@ -51,14 +54,38 @@ class AuthorizationChallenge
     private $payload;
 
     /**
+     * @var string|null
+     */
+    private $path;
+
+    /**
+     * @var string|null
+     */
+    private $verifyurl;
+
+    /**
+     * @var string|null
+     */
+    private $filecontent;
+
+    /**
+     * @var string|null
+     */
+    private $fqdn;
+
+    /**
      * @param string $domain
      * @param string $status
      * @param string $type
      * @param string $url
      * @param string $token
      * @param string $payload
+     * @param string $path
+     * @param string $verifyurl
+     * @param string $filecontent
+     * @param string $fqdn
      */
-    public function __construct($domain, $status, $type, $url, $token, $payload)
+    public function __construct($domain, $status, $type, $url, $token, $payload, $path = null, $verifyurl = null, $filecontent = null, $fqdn = null)
     {
         Assert::stringNotEmpty($domain, 'Challenge::$domain expected a non-empty string. Got: %s');
         Assert::stringNotEmpty($status, 'Challenge::$status expected a non-empty string. Got: %s');
@@ -73,6 +100,10 @@ class AuthorizationChallenge
         $this->url = $url;
         $this->token = $token;
         $this->payload = $payload;
+        $this->path = $path;
+        $this->verifyurl = $verifyurl;
+        $this->filecontent = $filecontent;
+        $this->fqdn = $fqdn;
     }
 
     /**
@@ -87,6 +118,9 @@ class AuthorizationChallenge
             'url' => $this->getUrl(),
             'token' => $this->getToken(),
             'payload' => $this->getPayload(),
+            'path' => $this->getPath(),
+            'verifyurl' => $this->getVerifyurl(),
+            'filecontent' => $this->getFilecontent(),
         ];
     }
 
@@ -103,7 +137,10 @@ class AuthorizationChallenge
             $data['type'],
             $data['url'],
             $data['token'],
-            $data['payload']
+            $data['payload'],
+            isset($data['path']) ? $data['path'] : null,
+            isset($data['verifyurl']) ? $data['verifyurl'] : null,
+            isset($data['filecontent']) ? $data['filecontent'] : null
         );
     }
 
@@ -124,7 +161,7 @@ class AuthorizationChallenge
     }
 
     /**
-     * @return string
+     * @return bool
      */
     public function isValid()
     {
@@ -132,7 +169,7 @@ class AuthorizationChallenge
     }
 
     /**
-     * @return string
+     * @return bool
      */
     public function isPending()
     {
@@ -169,5 +206,37 @@ class AuthorizationChallenge
     public function getPayload()
     {
         return $this->payload;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getPath()
+    {
+        return $this->path;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getVerifyurl()
+    {
+        return $this->verifyurl;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getFilecontent()
+    {
+        return $this->filecontent;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getFqdn()
+    {
+        return $this->fqdn;
     }
 }

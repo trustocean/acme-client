@@ -87,6 +87,8 @@ EOF
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        $this->error('This command is deprecated. Use command "run" instead');
+
         $this->repository = $this->getRepository();
         $this->client = $this->getClient();
         $this->actionHandler = $this->getActionHandler();
@@ -236,6 +238,8 @@ EOF;
         ];
 
         $this->info(strtr(strtr($success, $replacements), ['{domain}' => $domain]));
+
+        return 0;
     }
 
     /**
@@ -341,61 +345,7 @@ EOF;
 
             throw $e;
         }
-    }
 
-    /**
-     * Retrieve the stored distinguishedName or create a new one if needed.
-     *
-     * @param string $domain
-     * @param array  $alternativeNames
-     *
-     * @return DistinguishedName
-     */
-    private function getOrCreateDistinguishedName($domain, array $alternativeNames)
-    {
-        if ($this->repository->hasDomainDistinguishedName($domain)) {
-            $original = $this->repository->loadDomainDistinguishedName($domain);
-
-            $distinguishedName = new DistinguishedName(
-                $domain,
-                $this->input->getOption('country') ?: $original->getCountryName(),
-                $this->input->getOption('province') ?: $original->getStateOrProvinceName(),
-                $this->input->getOption('locality') ?: $original->getLocalityName(),
-                $this->input->getOption('organization') ?: $original->getOrganizationName(),
-                $this->input->getOption('unit') ?: $original->getOrganizationalUnitName(),
-                $this->input->getOption('email') ?: $original->getEmailAddress(),
-                $alternativeNames
-            );
-        } else {
-            // Ask DistinguishedName
-            $distinguishedName = new DistinguishedName(
-                $domain,
-                $this->input->getOption('country'),
-                $this->input->getOption('province'),
-                $this->input->getOption('locality'),
-                $this->input->getOption('organization'),
-                $this->input->getOption('unit'),
-                $this->input->getOption('email'),
-                $alternativeNames
-            );
-
-            /** @var DistinguishedNameHelper $helper */
-            $helper = $this->getHelper('distinguished_name');
-
-            if (!$helper->isReadyForRequest($distinguishedName)) {
-                $this->info("\n\nSome informations about you or your company are required for the certificate:\n");
-
-                $distinguishedName = $helper->ask(
-                    $this->getHelper('question'),
-                    $this->input,
-                    $this->output,
-                    $distinguishedName
-                );
-            }
-        }
-
-        $this->repository->storeDomainDistinguishedName($domain, $distinguishedName);
-
-        return $distinguishedName;
+        return 0;
     }
 }
