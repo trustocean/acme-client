@@ -156,6 +156,32 @@ class SecureHttpClient
         }
     }
 
+    private function extractSignOptionFromJWSAlg($alg)
+    {
+        if (!preg_match('/^([A-Z]+)(\d+)$/', $alg, $match)) {
+            throw new AcmeCoreClientException(sprintf('The given "%s" algorithm is not supported', $alg));
+        }
+
+        if (!\defined('OPENSSL_ALGO_SHA'.$match[2])) {
+            throw new AcmeCoreClientException(sprintf('The given "%s" algorithm is not supported', $alg));
+        }
+
+        $algorithm = \constant('OPENSSL_ALGO_SHA'.$match[2]);
+
+        switch ($match[1]) {
+            case 'RS':
+                $format = DataSigner::FORMAT_DER;
+                break;
+            case 'ES':
+                $format = DataSigner::FORMAT_ECDSA;
+                break;
+            default:
+                throw new AcmeCoreClientException(sprintf('The given "%s" algorithm is not supported', $alg));
+        }
+
+        return [$algorithm, $format];
+    }
+
     public function getJWK()
     {
         $privateKey = $this->accountKeyPair->getPrivateKey();

@@ -341,7 +341,7 @@ class AcmeClient implements AcmeClientV2Interface
     {
         if (!$this->directory) {
             $this->directory = new ResourcesDirectory(
-                $this->getHttpClient()->unsignedRequest('GET', $this->directoryUrl, null, true)
+                $this->getHttpClient()->unsignedRequest('GET', $this->directoryUrl, [], true)
             );
         }
 
