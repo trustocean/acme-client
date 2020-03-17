@@ -132,39 +132,37 @@ class TencentCloudSolver implements MultipleChallengesSolverInterface, Configura
                 $recordType = $this->extractor->getRecordType($authorizationChallenge);
             }
 
-            if ('cname' === strtolower($recordType)) {
-                // Because DNSPod can't create conflicting cname records
-                // So we'd delete existing records first
-                clear:
+            // Because DNSPod can't create conflicting cname records
+            // So we'd delete existing records first
+            clear:
 
-                $cns->RecordList([
-                    'domain' => $topLevelDomain,
-                    'subDomain' => $subDomain,
-                    'recordType' => $recordType,
-                ]);
-                try {
-                    $data = json_decode($cns->getLastResponse(), true);
-                } catch (InvalidArgumentException $e) {
-                    $err = $cns->getError();
-                    if ($err) {
-                        if ($err->getCode() == 3000) {
-                            throw new \Exception('DNSPod Api Exception:' . QcloudApi_Common_Request::getRawResponse(), $err->getCode());
-                        }
-                        print_r($err->getExt());
-                        throw new \Exception($err->getMessage(), $err->getCode());
-                    } else {
-                        echo $cns->getLastResponse();
+            $cns->RecordList([
+                'domain' => $topLevelDomain,
+                'subDomain' => $subDomain,
+                'recordType' => $recordType,
+            ]);
+            try {
+                $data = json_decode($cns->getLastResponse(), true);
+            } catch (InvalidArgumentException $e) {
+                $err = $cns->getError();
+                if ($err) {
+                    if ($err->getCode() == 3000) {
+                        throw new \Exception('DNSPod Api Exception:' . QcloudApi_Common_Request::getRawResponse(), $err->getCode());
                     }
-                    throw $e;
+                    print_r($err->getExt());
+                    throw new \Exception($err->getMessage(), $err->getCode());
+                } else {
+                    echo $cns->getLastResponse();
                 }
-                if ($data && isset($data['data']) && isset($data['data']['records']) && \is_array($data['data']['records']) && \count($data['data']['records'])) {
-                    foreach ($data['data']['records'] as $existedRecord) {
-                        if (isset($existedRecord['id'])) {
-                            $cns->RecordDelete([
-                                'domain' => $topLevelDomain,
-                                'recordId' => $existedRecord['id'],
-                            ]);
-                        }
+                throw $e;
+            }
+            if ($data && isset($data['data']) && isset($data['data']['records']) && \is_array($data['data']['records']) && \count($data['data']['records'])) {
+                foreach ($data['data']['records'] as $existedRecord) {
+                    if (isset($existedRecord['id'])) {
+                        $cns->RecordDelete([
+                            'domain' => $topLevelDomain,
+                            'recordId' => $existedRecord['id'],
+                        ]);
                     }
                 }
             }
@@ -182,6 +180,9 @@ class TencentCloudSolver implements MultipleChallengesSolverInterface, Configura
                  */
                 $err = $cns->getError();
                 if (strpos($err->getMessage(), '子域名负载均衡数量超出限制') !== false) {
+                    goto clear;
+                }
+                if ($err->getCode() == '8104104') {
                     goto clear;
                 }
                 throw new Exception($err->getMessage(), $err->getCode());

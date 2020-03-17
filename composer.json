@@ -39,14 +39,13 @@
         "ext-mbstring": "*",
         "ext-openssl": "*",
         "lib-openssl": ">=0.9.8",
-        "aws/aws-sdk-php": "^3.38",
         "daverandom/libdns": ">=1.0",
         "guzzlehttp/guzzle": "^6.4",
         "guzzlehttp/psr7": "^1.0",
         "league/flysystem": "^1.0.19",
         "league/flysystem-memory": "^1.0",
         "league/flysystem-sftp": "^1.0.7",
-        "monolog/monolog": "^1.19",
+        "monolog/monolog": "^1.19|^2.0",
         "padraic/phar-updater": "^1.0",
         "psr/container": "^1.0",
         "psr/http-message": "^1.0",
@@ -68,13 +67,13 @@
         "digitalsign/jwt-core": "*"
     },
     "suggest": {
-        "daverandom/libdns": "^2.0"
+        "daverandom/libdns": "^2.0",
+        "aws/aws-sdk-php": "^3.38"
     },
     "require-dev": {
-        "phpspec/prophecy": "^1.8",
+        "phpspec/prophecy": "^1.9",
         "symfony/finder": "^3.4|^4.0",
-        "symfony/process": "^3.4|^4.0",
-        "symfony/phpunit-bridge": "^3.4.19|^4.0",
+        "symfony/phpunit-bridge": "^5.0",
         "symfony/var-dumper": "^3.4|^4.0"
     },
     "autoload": {

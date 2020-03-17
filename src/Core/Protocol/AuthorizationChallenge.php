@@ -161,7 +161,7 @@ class AuthorizationChallenge
     }
 
     /**
-     * @return string
+     * @return bool
      */
     public function isValid()
     {
@@ -169,7 +169,7 @@ class AuthorizationChallenge
     }
 
     /**
-     * @return string
+     * @return bool
      */
     public function isPending()
     {

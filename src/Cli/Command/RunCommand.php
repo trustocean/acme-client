@@ -111,6 +111,8 @@ EOF
 
             $this->installCertificate($domain, $response, $domainConfig['install']);
         }
+
+        return 0;
     }
 
     private function register($email, KeyOption $keyOption)
@@ -335,9 +337,11 @@ EOF
                 continue;
             }
 
-            $this->output->writeln(sprintf('<info>Testing the challenge for domain %s...</info>', $domain));
-            if (time() - $startTestTime > $config_timeout || !$validator->isValid($authorizationChallenge)) {
-                $this->output->writeln(sprintf('<info>Can not self validate challenge for domain %s. Maybe letsencrypt will be able to do it...</info>', $domain));
+            if (!isset($config['check']) || $config['check']) {
+                $this->output->writeln(sprintf('<info>Testing the challenge for domain %s...</info>', $domain));
+                if (time() - $startTestTime > $config_timeout || !$validator->isValid($authorizationChallenge)) {
+                    $this->output->writeln(sprintf('<info>Can not self validate challenge for domain %s. Maybe letsencrypt will be able to do it...</info>', $domain));
+                }
             }
 
             $this->output->writeln(sprintf('<info>Requesting authorization check for domain %s...</info>', $domain));
