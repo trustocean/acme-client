@@ -111,6 +111,8 @@ EOF
 
             $this->installCertificate($domain, $response, $domainConfig['install']);
         }
+
+        return 0;
     }
 
     private function register($email, KeyOption $keyOption)
