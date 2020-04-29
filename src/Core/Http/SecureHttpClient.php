@@ -71,14 +71,6 @@ class SecureHttpClient
      */
     private $nonceEndpoint;
 
-    /**
-     * @param KeyPair            $accountKeyPair
-     * @param ClientInterface    $httpClient
-     * @param Base64SafeEncoder  $base64Encoder
-     * @param KeyParser          $keyParser
-     * @param DataSigner         $dataSigner
-     * @param ServerErrorHandler $errorHandler
-     */
     public function __construct(
         KeyPair $accountKeyPair,
         ClientInterface $httpClient,
@@ -100,7 +92,6 @@ class SecureHttpClient
      *
      * @param string $method
      * @param string $endpoint
-     * @param array  $payload
      * @param bool   $returnJson
      *
      * @throws AcmeCoreServerException when the ACME server returns an error HTTP status code
@@ -259,9 +250,6 @@ class SecureHttpClient
     /**
      * Sign the given Payload.
      *
-     * @param array      $protected
-     * @param array|null $payload
-     *
      * @return array
      */
     private function signPayload(array $protected, array $payload = null)
@@ -299,7 +287,6 @@ class SecureHttpClient
      * @param string $method
      * @param string $endpoint
      * @param string $account
-     * @param array  $payload
      * @param bool   $returnJson
      *
      * @throws AcmeCoreClientException when an error occured during response parsing
@@ -340,7 +327,6 @@ class SecureHttpClient
      *
      * @param string $method
      * @param string $endpoint
-     * @param array  $data
      * @param bool   $returnJson
      *
      * @throws AcmeCoreClientException when an error occured during response parsing
@@ -381,23 +367,12 @@ class SecureHttpClient
 
             $data = JsonDecoder::decode($body, true);
         } catch (\InvalidArgumentException $exception) {
-            throw new ExpectedJsonException(
-                sprintf(
-                    'ACME client excepted valid JSON as a response to request "%s %s" (given: "%s")',
-                    $request->getMethod(),
-                    $request->getUri(),
-                    ServerErrorHandler::getResponseBodySummary($this->lastResponse)
-                ),
-                $exception
-            );
+            throw new ExpectedJsonException(sprintf('ACME client excepted valid JSON as a response to request "%s %s" (given: "%s")', $request->getMethod(), $request->getUri(), ServerErrorHandler::getResponseBodySummary($this->lastResponse)), $exception);
         }
 
         return $data;
     }
 
-    /**
-     * @param KeyPair $keyPair
-     */
     public function setAccountKeyPair(KeyPair $keyPair)
     {
         $this->accountKeyPair = $keyPair;
@@ -488,10 +463,7 @@ class SecureHttpClient
             throw $this->errorHandler->createAcmeExceptionForResponse($request, $this->lastResponse, $exception);
         }
 
-        throw new AcmeCoreClientException(
-            sprintf('An error occured during request "%s %s"', $request->getMethod(), $request->getUri()),
-            $exception
-        );
+        throw new AcmeCoreClientException(sprintf('An error occured during request "%s %s"', $request->getMethod(), $request->getUri()), $exception);
     }
 
     private function getNonce()

@@ -53,12 +53,15 @@ class ServerErrorHandler
      * Get a response summary (useful for exceptions).
      * Use Guzzle method if available (Guzzle 6.1.1+).
      *
-     * @param ResponseInterface $response
-     *
      * @return string
      */
     public static function getResponseBodySummary(ResponseInterface $response)
     {
+        // Rewind the stream if possible to allow re-reading for the summary.
+        if ($response->getBody()->isSeekable()) {
+            $response->getBody()->rewind();
+        }
+
         if (method_exists(RequestException::class, 'getResponseBodySummary')) {
             return RequestException::getResponseBodySummary($response);
         }
@@ -73,10 +76,6 @@ class ServerErrorHandler
     }
 
     /**
-     * @param RequestInterface  $request
-     * @param ResponseInterface $response
-     * @param \Exception|null   $previous
-     *
      * @return AcmeCoreServerException
      */
     public function createAcmeExceptionForResponse(
@@ -114,10 +113,6 @@ class ServerErrorHandler
     }
 
     /**
-     * @param RequestInterface  $request
-     * @param ResponseInterface $response
-     * @param \Exception|null   $previous
-     *
      * @return AcmeCoreServerException
      */
     private function createDefaultExceptionForResponse(

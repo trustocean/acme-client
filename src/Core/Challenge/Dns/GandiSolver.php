@@ -64,8 +64,6 @@ class GandiSolver implements MultipleChallengesSolverInterface, ConfigurableServ
 
     /**
      * Configure the service with a set of configuration.
-     *
-     * @param array $config
      */
     public function configure(array $config)
     {

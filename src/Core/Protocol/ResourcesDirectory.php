@@ -31,9 +31,6 @@ class ResourcesDirectory
      */
     private $serverResources;
 
-    /**
-     * @param array $serverResources
-     */
     public function __construct(array $serverResources)
     {
         $this->serverResources = $serverResources;
