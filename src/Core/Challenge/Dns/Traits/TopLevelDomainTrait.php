@@ -11,8 +11,10 @@
 
 namespace AcmePhp\Core\Challenge\Dns\Traits;
 
-use LayerShifter\TLDExtract\Extract;
-use AcmePhp\Cli\Exception\AcmeDnsResolutionException;
+use DateInterval;
+use Pdp\Cache;
+use Pdp\CurlHttpClient;
+use Pdp\Manager;
 
 trait TopLevelDomainTrait
 {
@@ -23,12 +25,11 @@ trait TopLevelDomainTrait
      */
     protected function getTopLevelDomain($domain)
     {
-        $extract = new Extract();
-        $parse = $extract->parse(str_replace('*.', '', $domain));
-        if (!$parse->isValidDomain()) {
-            throw new AcmeDnsResolutionException($domain.' is not a valid domain');
-        }
+        $manager = new Manager(new Cache(), new CurlHttpClient(), (new DateInterval('365d')));
+        $rules = $manager->getRules();
 
-        return $parse->getRegistrableDomain();
+        $resolve = $rules->resolve($domain);
+
+        return $resolve->getRegistrableDomain();
     }
 }

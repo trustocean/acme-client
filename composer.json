@@ -63,8 +63,8 @@
         "alibabacloud/wafopenapi": "^1.7",
         "alibabacloud/cdn": "^1.7",
         "tencentyun-api/qcloudapi-sdk-php": "^2.0",
-        "layershifter/tld-extract": "^2.0",
-        "digitalsign/jwt-core": "*"
+        "digitalsign/jwt-core": "*",
+        "jeremykendall/php-domain-parser": "^5.6"
     },
     "suggest": {
         "daverandom/libdns": "^2.0",
@@ -73,7 +73,7 @@
     "require-dev": {
         "phpspec/prophecy": "^1.9",
         "symfony/finder": "^3.4|^4.0",
-        "symfony/phpunit-bridge": "^5.0",
+        "symfony/phpunit-bridge": "^4.0",
         "symfony/var-dumper": "^3.4|^4.0"
     },
     "autoload": {
@@ -96,7 +96,8 @@
     ],
     "config": {
         "platform": {
-            "php": "5.6.3"
+            "php": "7.1"
         }
-    }
+    },
+    "prefer-stable": true
 }
